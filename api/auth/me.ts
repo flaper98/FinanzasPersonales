@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql, asegurarEsquema } from '../_lib/db';
-import { obtenerUserId } from '../_lib/auth';
-import { conManejoDeErrores } from '../_lib/http';
+import { sql, asegurarEsquema } from '../_lib/db.js';
+import { obtenerUserId } from '../_lib/auth.js';
+import { conManejoDeErrores } from '../_lib/http.js';
 
 export default conManejoDeErrores(async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {

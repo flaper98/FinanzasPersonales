@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { borrarCookieSesion } from '../_lib/auth';
-import { conManejoDeErrores } from '../_lib/http';
+import { borrarCookieSesion } from '../_lib/auth.js';
+import { conManejoDeErrores } from '../_lib/http.js';
 
 export default conManejoDeErrores(function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

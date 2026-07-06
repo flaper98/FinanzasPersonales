@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql, asegurarEsquema } from '../_lib/db';
-import { hashPassword, crearSesionToken, setearCookieSesion } from '../_lib/auth';
-import { conManejoDeErrores } from '../_lib/http';
+import { sql, asegurarEsquema } from '../_lib/db.js';
+import { hashPassword, crearSesionToken, setearCookieSesion } from '../_lib/auth.js';
+import { conManejoDeErrores } from '../_lib/http.js';
 
 function emailValido(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
