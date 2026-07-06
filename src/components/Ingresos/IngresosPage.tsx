@@ -12,24 +12,40 @@ export function IngresosPage() {
   const { selectedMonth, agregarIngreso, actualizarIngreso, eliminarIngreso, alternarCobrado } = useFinance();
   const [editando, setEditando] = useState<Ingreso | null>(null);
   const [creando, setCreando] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
   const ingresos = selectedMonth?.ingresos ?? [];
-  const ordenados = useMemo(() => ordenarPorFecha(ingresos, (i) => i.fecha), [ingresos]);
-  const total = ingresos.reduce((s, i) => s + i.monto, 0);
+  const visibles = useMemo(() => {
+    const termino = busqueda.trim().toLowerCase();
+    const filtrados = termino ? ingresos.filter((i) => i.detalle.toLowerCase().includes(termino)) : ingresos;
+    return ordenarPorFecha(filtrados, (i) => i.fecha);
+  }, [ingresos, busqueda]);
+  const total = visibles.reduce((s, i) => s + i.monto, 0);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-lg font-semibold text-slate-800">Ingresos</h2>
-        <button
-          onClick={() => setCreando(true)}
-          className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white hover:bg-brand-700"
-        >
-          + Agregar ingreso
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por detalle…"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+          <button
+            onClick={() => setCreando(true)}
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white hover:bg-brand-700 whitespace-nowrap"
+          >
+            + Agregar ingreso
+          </button>
+        </div>
       </div>
 
-      {ingresos.length === 0 ? (
-        <p className="text-sm text-slate-500 py-8 text-center">No hay ingresos registrados este mes.</p>
+      {visibles.length === 0 ? (
+        <p className="text-sm text-slate-500 py-8 text-center">
+          {busqueda ? 'Ningún ingreso coincide con la búsqueda.' : 'No hay ingresos registrados este mes.'}
+        </p>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
           <table className="w-full text-sm">
@@ -43,7 +59,7 @@ export function IngresosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {ordenados.map((i) => (
+              {visibles.map((i) => (
                 <tr key={i.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium text-slate-800">
                     {i.detalle}

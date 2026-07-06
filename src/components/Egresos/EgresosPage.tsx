@@ -16,12 +16,15 @@ export function EgresosPage() {
   const [editando, setEditando] = useState<Egreso | null>(null);
   const [creando, setCreando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
+  const [busqueda, setBusqueda] = useState('');
 
   const egresos = selectedMonth?.egresos ?? [];
   const visibles = useMemo(() => {
-    const filtrados = filtro === 'TODOS' ? egresos : egresos.filter((e) => e.tipo === filtro);
+    let filtrados = filtro === 'TODOS' ? egresos : egresos.filter((e) => e.tipo === filtro);
+    const termino = busqueda.trim().toLowerCase();
+    if (termino) filtrados = filtrados.filter((e) => e.detalle.toLowerCase().includes(termino));
     return ordenarPorFecha(filtrados, (e) => e.fecha);
-  }, [egresos, filtro]);
+  }, [egresos, filtro, busqueda]);
   const total = visibles.reduce((s, e) => s + e.monto, 0);
   const detalleIngresoPorId = new Map((selectedMonth?.ingresos ?? []).map((i) => [i.id, i.detalle]));
 
@@ -29,7 +32,14 @@ export function EgresosPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-lg font-semibold text-slate-800">Egresos</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por detalle…"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
           <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
             {(['TODOS', 'FIJO', 'NO FIJO'] as const).map((f) => (
               <button
@@ -45,7 +55,7 @@ export function EgresosPage() {
           </div>
           <button
             onClick={() => setCreando(true)}
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white hover:bg-brand-700"
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white hover:bg-brand-700 whitespace-nowrap"
           >
             + Agregar egreso
           </button>
@@ -53,7 +63,11 @@ export function EgresosPage() {
       </div>
 
       {visibles.length === 0 ? (
-        <p className="text-sm text-slate-500 py-8 text-center">No hay egresos registrados en este filtro.</p>
+        <p className="text-sm text-slate-500 py-8 text-center">
+          {busqueda || filtro !== 'TODOS'
+            ? 'Ningún egreso coincide con la búsqueda/filtro.'
+            : 'No hay egresos registrados en este filtro.'}
+        </p>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
           <table className="w-full text-sm">
