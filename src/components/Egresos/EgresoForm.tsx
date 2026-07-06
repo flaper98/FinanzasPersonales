@@ -3,6 +3,7 @@ import type { Egreso, NewEgresoInput, TipoEgreso } from '../../types';
 import { Modal } from '../common/Modal';
 import { useFinance } from '../../context/FinanceContext';
 import { TARJETA_CREDITO } from '../../lib/calculations';
+import { todayIso } from '../../lib/monthUtils';
 
 export function EgresoForm({
   initial,
@@ -15,7 +16,7 @@ export function EgresoForm({
 }) {
   const [detalle, setDetalle] = useState(initial?.detalle ?? '');
   const [monto, setMonto] = useState(initial?.monto?.toString() ?? '');
-  const [fecha, setFecha] = useState(initial?.fecha ?? '');
+  const [fecha, setFecha] = useState(initial?.fecha ?? todayIso());
   const [tipo, setTipo] = useState<TipoEgreso>(initial?.tipo ?? 'FIJO');
   const [siempre, setSiempre] = useState(
     initial ? initial.cuotasTotales === 'siempre' : false,
