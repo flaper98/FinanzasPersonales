@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import type { Egreso } from '../../types';
 import { formatIsoDate, ordenarPorFecha } from '../../lib/monthUtils';
 import { cuotasPorPagar } from '../../lib/calculations';
 import { EgresoForm } from './EgresoForm';
+import { Pagination } from '../common/Pagination';
+
+const POR_PAGINA = 15;
 
 function formatMonto(n: number): string {
   return n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 });
@@ -17,6 +20,7 @@ export function EgresosPage() {
   const [creando, setCreando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
   const [busqueda, setBusqueda] = useState('');
+  const [pagina, setPagina] = useState(1);
 
   const egresos = selectedMonth?.egresos ?? [];
   const visibles = useMemo(() => {
@@ -28,6 +32,13 @@ export function EgresosPage() {
   const total = visibles.reduce((s, e) => s + e.monto, 0);
   const detalleIngresoPorId = new Map((selectedMonth?.ingresos ?? []).map((i) => [i.id, i.detalle]));
   const detallePrestamoPorId = new Map(state.prestamos.map((p) => [p.id, p.entidad]));
+  const totalPaginas = Math.max(Math.ceil(visibles.length / POR_PAGINA), 1);
+  const paginaSegura = Math.min(pagina, totalPaginas);
+  const paginados = visibles.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA);
+
+  useEffect(() => {
+    setPagina(1);
+  }, [busqueda, filtro, selectedMonth?.key]);
 
   return (
     <div className="space-y-4">
@@ -84,7 +95,7 @@ export function EgresosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {visibles.map((e) => {
+              {paginados.map((e) => {
                 const porPagar = cuotasPorPagar(e.cuotasTotales, e.cuotaActual);
                 return (
                   <tr key={e.id} className={`hover:bg-slate-50 ${e.finalizado ? 'opacity-60' : ''}`}>
@@ -166,6 +177,7 @@ export function EgresosPage() {
               </tr>
             </tfoot>
           </table>
+          <Pagination pagina={paginaSegura} totalPaginas={totalPaginas} onChange={setPagina} />
         </div>
       )}
 

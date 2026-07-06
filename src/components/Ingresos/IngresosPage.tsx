@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import type { Ingreso } from '../../types';
 import { formatIsoDate, ordenarPorFecha } from '../../lib/monthUtils';
 import { IngresoForm } from './IngresoForm';
+import { Pagination } from '../common/Pagination';
+
+const POR_PAGINA = 15;
 
 function formatMonto(n: number): string {
   return n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 });
@@ -13,6 +16,7 @@ export function IngresosPage() {
   const [editando, setEditando] = useState<Ingreso | null>(null);
   const [creando, setCreando] = useState(false);
   const [busqueda, setBusqueda] = useState('');
+  const [pagina, setPagina] = useState(1);
   const ingresos = selectedMonth?.ingresos ?? [];
   const visibles = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
@@ -20,6 +24,13 @@ export function IngresosPage() {
     return ordenarPorFecha(filtrados, (i) => i.fecha);
   }, [ingresos, busqueda]);
   const total = visibles.reduce((s, i) => s + i.monto, 0);
+  const totalPaginas = Math.max(Math.ceil(visibles.length / POR_PAGINA), 1);
+  const paginaSegura = Math.min(pagina, totalPaginas);
+  const paginados = visibles.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA);
+
+  useEffect(() => {
+    setPagina(1);
+  }, [busqueda, selectedMonth?.key]);
 
   return (
     <div className="space-y-4">
@@ -59,7 +70,7 @@ export function IngresosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {visibles.map((i) => (
+              {paginados.map((i) => (
                 <tr key={i.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium text-slate-800">
                     {i.detalle}
@@ -111,6 +122,7 @@ export function IngresosPage() {
               </tr>
             </tfoot>
           </table>
+          <Pagination pagina={paginaSegura} totalPaginas={totalPaginas} onChange={setPagina} />
         </div>
       )}
 
