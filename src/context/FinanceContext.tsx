@@ -1,5 +1,14 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import type { Egreso, FinanceState, Ingreso, MonthData, NewEgresoInput, NewIngresoInput, TarjetaCredito } from '../types';
+import type {
+  Egreso,
+  FinanceState,
+  Ingreso,
+  MonthData,
+  NewEgresoInput,
+  NewIngresoInput,
+  NewPrestamoInput,
+  TarjetaCredito,
+} from '../types';
 import { loadState } from '../lib/storage';
 import { apiGet, apiPut } from '../lib/api';
 import { newId } from '../lib/id';
@@ -38,6 +47,9 @@ interface FinanceContextValue {
   alternarCobrado: (id: string) => void;
   actualizarSaldoInicial: (monto: number) => void;
   actualizarTarjetaCredito: (campo: keyof TarjetaCredito, valor: number) => void;
+  agregarPrestamo: (input: NewPrestamoInput) => void;
+  actualizarPrestamo: (id: string, input: NewPrestamoInput) => void;
+  eliminarPrestamo: (id: string) => void;
   asignarFuentePago: (egresoId: string, ingresoId: string | null) => void;
   reemplazarEstado: (nuevo: FinanceState) => void;
   importarFilas: (ingresos: NewIngresoInput[], egresos: NewEgresoInput[]) => void;
@@ -65,6 +77,7 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
   return {
     months,
     tarjetaCredito: state.tarjetaCredito ?? { limite: 0, saldoActual: 0 },
+    prestamos: state.prestamos ?? [],
   };
 }
 
@@ -80,7 +93,11 @@ function ensureMonth(state: FinanceState, key: string): FinanceState {
 }
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<FinanceState>({ months: {}, tarjetaCredito: { limite: 0, saldoActual: 0 } });
+  const [state, setState] = useState<FinanceState>({
+    months: {},
+    tarjetaCredito: { limite: 0, saldoActual: 0 },
+    prestamos: [],
+  });
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey());
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -276,6 +293,21 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => ({ ...prev, tarjetaCredito: { ...prev.tarjetaCredito, [campo]: valor } }));
   }
 
+  function agregarPrestamo(input: NewPrestamoInput) {
+    setState((prev) => ({ ...prev, prestamos: [...prev.prestamos, { ...input, id: newId() }] }));
+  }
+
+  function actualizarPrestamo(id: string, input: NewPrestamoInput) {
+    setState((prev) => ({
+      ...prev,
+      prestamos: prev.prestamos.map((p) => (p.id === id ? { ...p, ...input } : p)),
+    }));
+  }
+
+  function eliminarPrestamo(id: string) {
+    setState((prev) => ({ ...prev, prestamos: prev.prestamos.filter((p) => p.id !== id) }));
+  }
+
   /** `valor` es el id de un Ingreso, `TARJETA_CREDITO` para marcarlo a pagar con tarjeta, o null para quitar la asignación. */
   function asignarFuentePago(egresoId: string, valor: string | null) {
     const pagoConTarjeta = valor === TARJETA_CREDITO;
@@ -352,6 +384,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     alternarCobrado,
     actualizarSaldoInicial,
     actualizarTarjetaCredito,
+    agregarPrestamo,
+    actualizarPrestamo,
+    eliminarPrestamo,
     asignarFuentePago,
     reemplazarEstado,
     importarFilas,

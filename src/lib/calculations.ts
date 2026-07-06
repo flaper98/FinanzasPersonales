@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import type { Cuotas, Egreso, Ingreso, MonthData, TarjetaCredito } from '../types';
+import type { Cuotas, Egreso, Ingreso, MonthData, Prestamo, TarjetaCredito } from '../types';
 import { advanceIsoDateByMonth, todayIso } from './monthUtils';
 import { newId } from './id';
 
@@ -247,4 +247,62 @@ export function resumenTarjeta(tarjeta: TarjetaCredito, montoPorCargar: number):
     disponible,
     pctUsado,
   };
+}
+
+export interface ResumenPrestamo {
+  cuotasRestantes: number;
+  /** saldoCapital + interesPendiente: lo que falta pagar en total si se sigue el cronograma tal cual. */
+  totalPendiente: number;
+  progresoPct: number;
+  /** interesPendiente / saldoCapital: cuánto interés queda por cada sol de capital pendiente (aprox., mientras más alto, más conviene abonar antes). */
+  ratioInteres: number;
+}
+
+export function resumenPrestamo(prestamo: Prestamo): ResumenPrestamo {
+  const cuotasRestantes = Math.max(prestamo.cuotasTotales - prestamo.cuotaActual, 0);
+  const totalPendiente = prestamo.saldoCapital + prestamo.interesPendiente;
+  const progresoPct =
+    prestamo.cuotasTotales > 0 ? Math.min((prestamo.cuotaActual / prestamo.cuotasTotales) * 100, 100) : 0;
+  const ratioInteres = prestamo.saldoCapital > 0 ? prestamo.interesPendiente / prestamo.saldoCapital : 0;
+  return { cuotasRestantes, totalPendiente, progresoPct, ratioInteres };
+}
+
+export interface SugerenciaAbono {
+  ingreso: Ingreso;
+  /** Lo que le sobra a este ingreso tras cubrir todo lo que ya tiene asignado en el Planificador. */
+  disponible: number;
+}
+
+export interface AnalisisAbonoCapital {
+  sugerencias: SugerenciaAbono[];
+  totalDisponible: number;
+  /** Estimado de interés que te ahorrarías si aplicas `totalDisponible` como abono extra a capital (aprox., según la proporción interés/capital pendiente del cronograma). */
+  ahorroEstimado: number;
+}
+
+/**
+ * Mini "analista": mira qué ingresos del mes, después de cubrir todo lo que
+ * ya tienen asignado en el Planificador, todavía tienen plata libre — esa
+ * es la que conviene destinar a un abono extraordinario a capital del
+ * préstamo (reduce cuotas/interés futuro en vez de solo pagar la cuota
+ * normal). El ahorro es una estimación gruesa basada en la proporción
+ * interés/capital del cronograma, no un cálculo exacto del banco.
+ */
+export function analisisAbonoCapital(month: MonthData | undefined, prestamo: Prestamo | undefined): AnalisisAbonoCapital {
+  if (!prestamo || prestamo.saldoCapital <= 0) {
+    return { sugerencias: [], totalDisponible: 0, ahorroEstimado: 0 };
+  }
+
+  const { asignaciones } = resumenPlanificador(month);
+  const sugerencias = asignaciones
+    .filter((a) => a.disponible > 0)
+    .map((a) => ({ ingreso: a.ingreso, disponible: a.disponible }))
+    .sort((a, b) => b.disponible - a.disponible);
+
+  const totalDisponible = sugerencias.reduce((sum, s) => sum + s.disponible, 0);
+  const { ratioInteres } = resumenPrestamo(prestamo);
+  const abonoEfectivo = Math.min(totalDisponible, prestamo.saldoCapital);
+  const ahorroEstimado = abonoEfectivo * ratioInteres;
+
+  return { sugerencias, totalDisponible, ahorroEstimado };
 }

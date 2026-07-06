@@ -48,9 +48,31 @@ export interface TarjetaCredito {
   saldoActual: number;
 }
 
+/** Préstamo a cuotas fijas (ej. crédito de un banco/financiera), tal como aparece en su cronograma de pagos. */
+export interface Prestamo {
+  id: string;
+  /** Ej. "MiBanco". */
+  entidad: string;
+  /** Descripción libre, ej. "Préstamo capital de trabajo". */
+  detalle: string;
+  cuotaMensual: number;
+  cuotasTotales: number;
+  /** Cuotas ya pagadas hasta el cronograma vigente. */
+  cuotaActual: number;
+  /** Capital pendiente, tal como en el cronograma ("Saldo Prest"). Se actualiza a mano con cada estado de cuenta. */
+  saldoCapital: number;
+  /** Interés total pendiente si se sigue el cronograma tal cual, sin pagos adelantados. */
+  interesPendiente: number;
+  /** T.C.E.A. informativa, en %. */
+  tasaTCEA: number;
+}
+
+export type NewPrestamoInput = Omit<Prestamo, 'id'>;
+
 export interface FinanceState {
   months: Record<string, MonthData>;
   tarjetaCredito: TarjetaCredito;
+  prestamos: Prestamo[];
 }
 
 export type NewIngresoInput = Omit<Ingreso, 'id'>;
