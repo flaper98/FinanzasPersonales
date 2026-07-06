@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Egreso, NewEgresoInput, TipoEgreso } from '../../types';
 import { Modal } from '../common/Modal';
 import { useFinance } from '../../context/FinanceContext';
+import { TARJETA_CREDITO } from '../../lib/calculations';
 
 export function EgresoForm({
   initial,
@@ -26,12 +27,15 @@ export function EgresoForm({
     initial && typeof initial.cuotaActual === 'number' ? initial.cuotaActual.toString() : '0',
   );
   const [accion, setAccion] = useState(initial?.accion ?? 'NO PAGADO');
-  const [ingresoId, setIngresoId] = useState<string | null>(initial?.ingresoId ?? null);
+  const [metodoPago, setMetodoPago] = useState<string>(
+    initial?.pagoConTarjeta ? TARJETA_CREDITO : (initial?.ingresoId ?? ''),
+  );
   const { selectedMonth } = useFinance();
   const ingresosDisponibles = selectedMonth?.ingresos ?? [];
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const pagoConTarjeta = metodoPago === TARJETA_CREDITO;
     onSubmit({
       detalle: detalle.trim(),
       monto: parseFloat(monto) || 0,
@@ -40,7 +44,8 @@ export function EgresoForm({
       cuotasTotales: siempre ? 'siempre' : parseInt(cuotasTotales, 10) || 1,
       cuotaActual: siempre ? 'siempre' : parseInt(cuotaActual, 10) || 0,
       accion,
-      ingresoId,
+      ingresoId: pagoConTarjeta ? null : metodoPago || null,
+      pagoConTarjeta,
     });
     onClose();
   }
@@ -159,13 +164,14 @@ export function EgresoForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Pagar con (planificador)</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Cómo lo vas a pagar</label>
           <select
-            value={ingresoId ?? ''}
-            onChange={(e) => setIngresoId(e.target.value || null)}
+            value={metodoPago}
+            onChange={(e) => setMetodoPago(e.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Sin asignar</option>
+            <option value={TARJETA_CREDITO}>💳 Tarjeta de crédito</option>
             {ingresosDisponibles.map((i) => (
               <option key={i.id} value={i.id}>
                 {i.detalle} (S/ {i.monto.toLocaleString('es-PE')})

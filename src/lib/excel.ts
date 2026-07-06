@@ -52,7 +52,7 @@ export function exportMonthToExcel(month: MonthData): void {
         ? 'siempre'
         : Math.max((e.cuotasTotales as number) - (e.cuotaActual as number), 0),
     Accion: e.accion,
-    'Pagar Con': e.ingresoId ? (ingresoPorId.get(e.ingresoId) ?? '') : '',
+    'Pagar Con': e.pagoConTarjeta ? 'Tarjeta de crédito' : e.ingresoId ? (ingresoPorId.get(e.ingresoId) ?? '') : '',
   }));
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ingresoRows), 'Ingreso');
@@ -209,6 +209,7 @@ function rowToIngreso(row: Record<string, unknown>): NewIngresoInput {
 function rowToEgreso(row: Record<string, unknown>): NewEgresoInput {
   const cuotasTotales = parseCuotas(getField(row, 'Cuotas Totales'));
   const cuotaActual = parseCuotas(getField(row, 'Cuota Actual'));
+  const pagarCon = String(getField(row, 'Pagar Con') ?? '');
   return {
     detalle: String(getField(row, 'Detalle') ?? '').trim(),
     monto: parseMonto(getField(row, 'Monto')),
@@ -218,5 +219,6 @@ function rowToEgreso(row: Record<string, unknown>): NewEgresoInput {
     cuotaActual,
     accion: parseAccion(getField(row, 'Accion', 'Acción')),
     ingresoId: null,
+    pagoConTarjeta: /tarjeta/i.test(pagarCon),
   };
 }

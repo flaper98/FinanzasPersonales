@@ -3,6 +3,9 @@ import type { Cuotas, Egreso, Ingreso, MonthData } from '../types';
 import { advanceIsoDateByMonth, todayIso } from './monthUtils';
 import { newId } from './id';
 
+/** Valor especial usado en los selectores de "cómo pagar" para representar "tarjeta de crédito" (no es un id de ingreso real). */
+export const TARJETA_CREDITO = '__tarjeta__';
+
 /** Alterna Cobrado/No Cobrado para un ingreso. */
 export function toggleEstadoIngreso(ingreso: Ingreso): Ingreso {
   return { ...ingreso, estado: ingreso.estado === 'COBRADO' ? 'NO COBRADO' : 'COBRADO' };
@@ -175,14 +178,19 @@ export interface ResumenPlanificador {
   asignaciones: AsignacionIngreso[];
   sinAsignar: Egreso[];
   totalSinAsignar: number;
+  /** Egresos pendientes marcados para pagar con tarjeta de crédito (no necesitan un ingreso asignado). */
+  aCargarTarjeta: Egreso[];
+  totalTarjeta: number;
 }
 
 /**
  * Agrupa los egresos pendientes del mes según con qué ingreso se planea
  * pagarlos, para saber cuánto de cada ingreso ya está comprometido y cuánto
  * queda libre. Los ya pagados no se muestran (no hay nada que planificar),
- * pero su monto sigue restando del disponible. Los egresos sin `ingresoId`
- * (o cuyo ingreso ya no existe) caen en "sinAsignar".
+ * pero su monto sigue restando del disponible. Los marcados "pagar con
+ * tarjeta" van aparte (no restan de ningún ingreso todavía; se sumarán al
+ * estado de cuenta de la tarjeta el próximo mes). El resto, sin `ingresoId`
+ * (o cuyo ingreso ya no existe), cae en "sinAsignar".
  */
 export function resumenPlanificador(month: MonthData | undefined): ResumenPlanificador {
   const ingresos = month?.ingresos ?? [];
@@ -190,16 +198,19 @@ export function resumenPlanificador(month: MonthData | undefined): ResumenPlanif
   const idsIngresos = new Set(ingresos.map((i) => i.id));
 
   const asignaciones: AsignacionIngreso[] = ingresos.map((ingreso) => {
-    const todosAsignados = egresos.filter((e) => e.ingresoId === ingreso.id);
+    const todosAsignados = egresos.filter((e) => e.ingresoId === ingreso.id && !e.pagoConTarjeta);
     const totalAsignado = todosAsignados.reduce((sum, e) => sum + e.monto, 0);
     const egresosAsignados = todosAsignados.filter((e) => e.accion === 'NO PAGADO');
     return { ingreso, egresosAsignados, totalAsignado, disponible: ingreso.monto - totalAsignado };
   });
 
   const sinAsignar = egresos.filter(
-    (e) => e.accion === 'NO PAGADO' && (!e.ingresoId || !idsIngresos.has(e.ingresoId)),
+    (e) => e.accion === 'NO PAGADO' && !e.pagoConTarjeta && (!e.ingresoId || !idsIngresos.has(e.ingresoId)),
   );
   const totalSinAsignar = sinAsignar.reduce((sum, e) => sum + e.monto, 0);
 
-  return { asignaciones, sinAsignar, totalSinAsignar };
+  const aCargarTarjeta = egresos.filter((e) => e.pagoConTarjeta && e.accion === 'NO PAGADO');
+  const totalTarjeta = aCargarTarjeta.reduce((sum, e) => sum + e.monto, 0);
+
+  return { asignaciones, sinAsignar, totalSinAsignar, aCargarTarjeta, totalTarjeta };
 }

@@ -10,6 +10,7 @@ import {
   arrastrarEgresosFijos,
   arrastrarIngresosFijos,
   dashboardTotals,
+  TARJETA_CREDITO,
 } from '../lib/calculations';
 import { currentMonthKey, nextMonthKey, sortedMonthKeys } from '../lib/monthUtils';
 import { normalizarDetalle } from '../lib/text';
@@ -264,10 +265,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     updateMonth(selectedMonthKey, (month) => ({ ...month, saldoInicial: monto }));
   }
 
-  function asignarFuentePago(egresoId: string, ingresoId: string | null) {
+  /** `valor` es el id de un Ingreso, `TARJETA_CREDITO` para marcarlo a pagar con tarjeta, o null para quitar la asignación. */
+  function asignarFuentePago(egresoId: string, valor: string | null) {
+    const pagoConTarjeta = valor === TARJETA_CREDITO;
     updateMonth(selectedMonthKey, (month) => ({
       ...month,
-      egresos: month.egresos.map((e) => (e.id === egresoId ? { ...e, ingresoId } : e)),
+      egresos: month.egresos.map((e) =>
+        e.id === egresoId ? { ...e, ingresoId: pagoConTarjeta ? null : valor, pagoConTarjeta } : e,
+      ),
     }));
   }
 

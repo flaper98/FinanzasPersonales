@@ -1,5 +1,5 @@
 import { useFinance } from '../../context/FinanceContext';
-import { resumenPlanificador } from '../../lib/calculations';
+import { resumenPlanificador, TARJETA_CREDITO } from '../../lib/calculations';
 import { formatIsoDate, monthLabel } from '../../lib/monthUtils';
 import type { Egreso } from '../../types';
 
@@ -14,15 +14,17 @@ function SelectorFuente({
 }: {
   egreso: Egreso;
   ingresos: Array<{ id: string; detalle: string }>;
-  onChange: (ingresoId: string | null) => void;
+  onChange: (valor: string | null) => void;
 }) {
+  const valor = egreso.pagoConTarjeta ? TARJETA_CREDITO : (egreso.ingresoId ?? '');
   return (
     <select
-      value={egreso.ingresoId ?? ''}
+      value={valor}
       onChange={(e) => onChange(e.target.value || null)}
       className="rounded-lg border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
     >
       <option value="">Sin asignar</option>
+      <option value={TARJETA_CREDITO}>💳 Tarjeta de crédito</option>
       {ingresos.map((i) => (
         <option key={i.id} value={i.id}>
           {i.detalle}
@@ -39,7 +41,7 @@ function FilaEgreso({
 }: {
   egreso: Egreso;
   ingresos: Array<{ id: string; detalle: string }>;
-  onChange: (ingresoId: string | null) => void;
+  onChange: (valor: string | null) => void;
 }) {
   return (
     <li className="flex items-center justify-between gap-3 py-2">
@@ -78,11 +80,12 @@ export function PlanificadorPage() {
       <div>
         <h2 className="text-lg font-semibold text-slate-800">Planificador de deudas — {monthLabel(selectedMonthKey)}</h2>
         <p className="text-sm text-slate-500 mt-1">
-          Elige con qué ingreso planeas pagar cada egreso, para saber cuánto de cada uno ya está comprometido.
+          Elige con qué ingreso planeas pagar cada egreso (o si lo vas a cargar a la tarjeta de crédito), para saber
+          cuánto de cada uno ya está comprometido.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Ingresos totales</div>
           <div className="text-lg font-bold mt-1 text-slate-700">{formatMonto(totalIngresos)}</div>
@@ -94,6 +97,10 @@ export function PlanificadorPage() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Egresos sin asignar</div>
           <div className="text-lg font-bold mt-1 text-amber-600">{formatMonto(resumen.totalSinAsignar)}</div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">💳 A cargar a la tarjeta</div>
+          <div className="text-lg font-bold mt-1 text-purple-600">{formatMonto(resumen.totalTarjeta)}</div>
         </div>
       </div>
 
@@ -140,7 +147,7 @@ export function PlanificadorPage() {
                       key={egreso.id}
                       egreso={egreso}
                       ingresos={ingresosParaSelector}
-                      onChange={(ingresoId) => asignarFuentePago(egreso.id, ingresoId)}
+                      onChange={(valor) => asignarFuentePago(egreso.id, valor)}
                     />
                   ))}
                 </ul>
@@ -150,13 +157,35 @@ export function PlanificadorPage() {
         })}
       </div>
 
+      <div className="bg-white rounded-xl shadow-sm border border-purple-200 p-4">
+        <h3 className="text-sm font-semibold text-slate-700 mb-1">💳 A pagar con tarjeta de crédito</h3>
+        <p className="text-xs text-slate-400 mb-2">
+          Egresos que planeas cargar a la tarjeta. Se sumarán al monto del próximo estado de cuenta, no a ningún
+          ingreso de este mes.
+        </p>
+        {resumen.aCargarTarjeta.length === 0 ? (
+          <p className="text-sm text-slate-400 py-2">No hay egresos marcados para pagar con tarjeta.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {resumen.aCargarTarjeta.map((egreso) => (
+              <FilaEgreso
+                key={egreso.id}
+                egreso={egreso}
+                ingresos={ingresosParaSelector}
+                onChange={(valor) => asignarFuentePago(egreso.id, valor)}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+
       <div className="bg-white rounded-xl shadow-sm border border-amber-200 p-4">
         <h3 className="text-sm font-semibold text-slate-700 mb-1">Sin asignar</h3>
         <p className="text-xs text-slate-400 mb-2">
-          Egresos que todavía no tienen un ingreso asignado para pagarlos.
+          Egresos que todavía no tienen un ingreso asignado ni están marcados para pagar con tarjeta.
         </p>
         {resumen.sinAsignar.length === 0 ? (
-          <p className="text-sm text-emerald-600 py-2">Todos los egresos ya están asignados a un ingreso.</p>
+          <p className="text-sm text-emerald-600 py-2">Todos los egresos ya están asignados.</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {resumen.sinAsignar.map((egreso) => (
@@ -164,7 +193,7 @@ export function PlanificadorPage() {
                 key={egreso.id}
                 egreso={egreso}
                 ingresos={ingresosParaSelector}
-                onChange={(ingresoId) => asignarFuentePago(egreso.id, ingresoId)}
+                onChange={(valor) => asignarFuentePago(egreso.id, valor)}
               />
             ))}
           </ul>

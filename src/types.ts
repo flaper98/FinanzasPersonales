@@ -28,6 +28,8 @@ export interface Egreso {
   finalizado: boolean;
   /** Id del Ingreso (del mismo mes) con el que se planea pagar este egreso, o null si no está asignado. */
   ingresoId: string | null;
+  /** Si se va a pagar cargándolo a la tarjeta de crédito (en vez de con un ingreso directo). */
+  pagoConTarjeta: boolean;
 }
 
 export interface MonthData {

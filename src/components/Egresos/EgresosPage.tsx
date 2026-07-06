@@ -92,10 +92,15 @@ export function EgresosPage() {
                       {e.finalizado && (
                         <span className="ml-2 text-xs font-normal text-slate-400">(finalizado)</span>
                       )}
-                      {e.ingresoId && detalleIngresoPorId.has(e.ingresoId) && (
-                        <div className="text-xs font-normal text-slate-400">
-                          Se paga con: {detalleIngresoPorId.get(e.ingresoId)}
-                        </div>
+                      {e.pagoConTarjeta ? (
+                        <div className="text-xs font-normal text-slate-400">💳 Se paga con tarjeta de crédito</div>
+                      ) : (
+                        e.ingresoId &&
+                        detalleIngresoPorId.has(e.ingresoId) && (
+                          <div className="text-xs font-normal text-slate-400">
+                            Se paga con: {detalleIngresoPorId.get(e.ingresoId)}
+                          </div>
+                        )
                       )}
                     </td>
                     <td className="px-4 py-3 text-right text-rose-600 font-semibold whitespace-nowrap">
