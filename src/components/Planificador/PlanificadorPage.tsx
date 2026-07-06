@@ -1,10 +1,121 @@
+import { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
-import { resumenPlanificador, TARJETA_CREDITO } from '../../lib/calculations';
+import { resumenPlanificador, resumenTarjeta, TARJETA_CREDITO } from '../../lib/calculations';
 import { formatIsoDate, monthLabel } from '../../lib/monthUtils';
 import type { Egreso } from '../../types';
 
 function formatMonto(n: number): string {
   return n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 });
+}
+
+function TarjetaCreditoWidget({ montoPorCargar }: { montoPorCargar: number }) {
+  const { state, actualizarTarjetaCredito } = useFinance();
+  const [editando, setEditando] = useState(false);
+  const [limite, setLimite] = useState('');
+  const [saldoActual, setSaldoActual] = useState('');
+  const resumen = resumenTarjeta(state.tarjetaCredito, montoPorCargar);
+  const sobregirado = resumen.disponible < 0;
+
+  function empezarEdicion() {
+    setLimite(state.tarjetaCredito.limite.toString());
+    setSaldoActual(state.tarjetaCredito.saldoActual.toString());
+    setEditando(true);
+  }
+
+  function guardar(e: React.FormEvent) {
+    e.preventDefault();
+    actualizarTarjetaCredito('limite', parseFloat(limite) || 0);
+    actualizarTarjetaCredito('saldoActual', parseFloat(saldoActual) || 0);
+    setEditando(false);
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <h3 className="text-sm font-semibold text-slate-700">💳 Tarjeta de crédito</h3>
+        {!editando && (
+          <button onClick={empezarEdicion} className="text-xs text-brand-600 hover:underline">
+            Actualizar con mi estado de cuenta
+          </button>
+        )}
+      </div>
+
+      {editando ? (
+        <form onSubmit={guardar} className="grid grid-cols-2 gap-3 mt-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Línea de crédito</label>
+            <input
+              autoFocus
+              type="number"
+              step="0.01"
+              value={limite}
+              onChange={(e) => setLimite(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Deuda actual (último estado de cuenta)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={saldoActual}
+              onChange={(e) => setSaldoActual(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+          <div className="col-span-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setEditando(false)}
+              className="px-3 py-1 rounded-lg text-slate-500 text-xs hover:bg-slate-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-3 py-1 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-700"
+            >
+              Guardar
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden mt-3">
+            <div
+              className={`h-full rounded-full transition-all ${sobregirado ? 'bg-rose-500' : 'bg-purple-500'}`}
+              style={{ width: `${resumen.pctUsado}%` }}
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 text-sm">
+            <div>
+              <div className="text-xs text-slate-400">Deuda actual</div>
+              <div className="font-semibold text-slate-700">{formatMonto(resumen.saldoActual)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400">Por cargar este mes</div>
+              <div className="font-semibold text-slate-700">{formatMonto(resumen.montoPorCargar)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400">Deuda proyectada</div>
+              <div className="font-semibold text-slate-700">{formatMonto(resumen.deudaProyectada)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400">Disponible</div>
+              <div className={`font-semibold ${sobregirado ? 'text-rose-600' : 'text-emerald-600'}`}>
+                {formatMonto(resumen.disponible)}
+              </div>
+            </div>
+          </div>
+          {resumen.limite === 0 && (
+            <p className="text-xs text-slate-400 mt-2">
+              Todavía no configuraste tu línea de crédito. Usa "Actualizar con mi estado de cuenta" para ingresarla.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 function SelectorFuente({
@@ -85,7 +196,7 @@ export function PlanificadorPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Ingresos totales</div>
           <div className="text-lg font-bold mt-1 text-slate-700">{formatMonto(totalIngresos)}</div>
@@ -98,11 +209,9 @@ export function PlanificadorPage() {
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Egresos sin asignar</div>
           <div className="text-lg font-bold mt-1 text-amber-600">{formatMonto(resumen.totalSinAsignar)}</div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">💳 A cargar a la tarjeta</div>
-          <div className="text-lg font-bold mt-1 text-purple-600">{formatMonto(resumen.totalTarjeta)}</div>
-        </div>
       </div>
+
+      <TarjetaCreditoWidget montoPorCargar={resumen.totalTarjeta} />
 
       {resumen.asignaciones.length === 0 && (
         <p className="text-sm text-slate-500 py-4 text-center">

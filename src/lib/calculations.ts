@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import type { Cuotas, Egreso, Ingreso, MonthData } from '../types';
+import type { Cuotas, Egreso, Ingreso, MonthData, TarjetaCredito } from '../types';
 import { advanceIsoDateByMonth, todayIso } from './monthUtils';
 import { newId } from './id';
 
@@ -213,4 +213,38 @@ export function resumenPlanificador(month: MonthData | undefined): ResumenPlanif
   const totalTarjeta = aCargarTarjeta.reduce((sum, e) => sum + e.monto, 0);
 
   return { asignaciones, sinAsignar, totalSinAsignar, aCargarTarjeta, totalTarjeta };
+}
+
+export interface ResumenTarjeta {
+  limite: number;
+  /** Deuda tal como aparece en el último estado de cuenta (ingresada a mano). */
+  saldoActual: number;
+  /** Egresos de este mes marcados "pagar con tarjeta" que aún no están reflejados en saldoActual. */
+  montoPorCargar: number;
+  /** saldoActual + montoPorCargar: la deuda total una vez se facturen esos egresos pendientes. */
+  deudaProyectada: number;
+  /** limite - deudaProyectada: lo que te queda para seguir usando la tarjeta. Puede ser negativo si te pasaste. */
+  disponible: number;
+  pctUsado: number;
+}
+
+/**
+ * Combina el saldo de tarjeta que el usuario ingresa a mano (tal como
+ * aparece en su último estado de cuenta) con lo que ya planeó cargar a la
+ * tarjeta este mes (`totalTarjeta` de `resumenPlanificador`) pero que el
+ * banco probablemente todavía no facturó, para estimar deuda y disponible.
+ */
+export function resumenTarjeta(tarjeta: TarjetaCredito, montoPorCargar: number): ResumenTarjeta {
+  const deudaProyectada = tarjeta.saldoActual + montoPorCargar;
+  const disponible = tarjeta.limite - deudaProyectada;
+  const pctUsado = tarjeta.limite > 0 ? Math.min(Math.max((deudaProyectada / tarjeta.limite) * 100, 0), 100) : 0;
+
+  return {
+    limite: tarjeta.limite,
+    saldoActual: tarjeta.saldoActual,
+    montoPorCargar,
+    deudaProyectada,
+    disponible,
+    pctUsado,
+  };
 }

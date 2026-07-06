@@ -41,8 +41,16 @@ export interface MonthData {
   egresos: Egreso[];
 }
 
+export interface TarjetaCredito {
+  /** Línea de crédito total que da el banco. */
+  limite: number;
+  /** Deuda actual tal como aparece en el último estado de cuenta (se actualiza a mano cuando llega uno nuevo). */
+  saldoActual: number;
+}
+
 export interface FinanceState {
   months: Record<string, MonthData>;
+  tarjetaCredito: TarjetaCredito;
 }
 
 export type NewIngresoInput = Omit<Ingreso, 'id'>;

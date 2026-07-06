@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import type { Egreso, FinanceState, Ingreso, MonthData, NewEgresoInput, NewIngresoInput } from '../types';
+import type { Egreso, FinanceState, Ingreso, MonthData, NewEgresoInput, NewIngresoInput, TarjetaCredito } from '../types';
 import { loadState } from '../lib/storage';
 import { apiGet, apiPut } from '../lib/api';
 import { newId } from '../lib/id';
@@ -37,6 +37,7 @@ interface FinanceContextValue {
   alternarPagado: (id: string) => void;
   alternarCobrado: (id: string) => void;
   actualizarSaldoInicial: (monto: number) => void;
+  actualizarTarjetaCredito: (campo: keyof TarjetaCredito, valor: number) => void;
   asignarFuentePago: (egresoId: string, ingresoId: string | null) => void;
   reemplazarEstado: (nuevo: FinanceState) => void;
   importarFilas: (ingresos: NewIngresoInput[], egresos: NewEgresoInput[]) => void;
@@ -61,12 +62,16 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
       egresos: month.egresos.map((e) => ({ ...e, detalle: normalizarDetalle(e.detalle) })),
     };
   }
-  return { months };
+  return {
+    months,
+    tarjetaCredito: state.tarjetaCredito ?? { limite: 0, saldoActual: 0 },
+  };
 }
 
 function ensureMonth(state: FinanceState, key: string): FinanceState {
   if (state.months[key]) return state;
   return {
+    ...state,
     months: {
       ...state.months,
       [key]: { key, saldoInicial: 0, ingresos: [], egresos: [] },
@@ -75,7 +80,7 @@ function ensureMonth(state: FinanceState, key: string): FinanceState {
 }
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<FinanceState>({ months: {} });
+  const [state, setState] = useState<FinanceState>({ months: {}, tarjetaCredito: { limite: 0, saldoActual: 0 } });
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey());
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -138,6 +143,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       const withMonth = ensureMonth(prev, key);
       const month = withMonth.months[key];
       return {
+        ...withMonth,
         months: {
           ...withMonth.months,
           [key]: updater(month),
@@ -177,6 +183,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     // El saldo con el que termina el mes anterior (saldo inicial + cobrado - pagado) pasa a ser el punto de partida del nuevo mes.
     const saldoInicial = dashboardTotals(mesAnterior).saldoReal;
     setState((prev) => ({
+      ...prev,
       months: {
         ...prev.months,
         [nuevaClave]: { key: nuevaClave, saldoInicial, ingresos: ingresosArrastrados, egresos: egresosArrastrados },
@@ -265,6 +272,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     updateMonth(selectedMonthKey, (month) => ({ ...month, saldoInicial: monto }));
   }
 
+  function actualizarTarjetaCredito(campo: keyof TarjetaCredito, valor: number) {
+    setState((prev) => ({ ...prev, tarjetaCredito: { ...prev.tarjetaCredito, [campo]: valor } }));
+  }
+
   /** `valor` es el id de un Ingreso, `TARJETA_CREDITO` para marcarlo a pagar con tarjeta, o null para quitar la asignación. */
   function asignarFuentePago(egresoId: string, valor: string | null) {
     const pagoConTarjeta = valor === TARJETA_CREDITO;
@@ -287,7 +298,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     const { [selectedMonthKey]: _eliminado, ...resto } = state.months;
     const clavesRestantes = sortedMonthKeys(Object.keys(resto));
     const nuevaSeleccion = clavesRestantes[Math.max(index - 1, 0)] ?? clavesRestantes[0];
-    setState({ months: resto });
+    setState((prev) => ({ ...prev, months: resto }));
     setSelectedMonthKey(nuevaSeleccion);
   }
 
@@ -340,6 +351,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     alternarPagado,
     alternarCobrado,
     actualizarSaldoInicial,
+    actualizarTarjetaCredito,
     asignarFuentePago,
     reemplazarEstado,
     importarFilas,
