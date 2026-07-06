@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, asegurarEsquema } from './_lib/db';
 import { obtenerUserId } from './_lib/auth';
+import { conManejoDeErrores } from './_lib/http';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default conManejoDeErrores(async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = await obtenerUserId(req);
   if (!userId) {
     res.status(401).json({ error: 'No autenticado.' });
@@ -33,4 +34,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   res.status(405).json({ error: 'Método no permitido.' });
-}
+});

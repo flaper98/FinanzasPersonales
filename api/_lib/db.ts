@@ -6,7 +6,24 @@ function requireEnv(name: string): string {
   return value;
 }
 
-export const sql = neon(requireEnv('DATABASE_URL'));
+type ClienteNeon = ReturnType<typeof neon<false, false>>;
+
+let clienteReal: ClienteNeon | undefined;
+
+function obtenerCliente(): ClienteNeon {
+  if (!clienteReal) {
+    clienteReal = neon(requireEnv('DATABASE_URL'));
+  }
+  return clienteReal;
+}
+
+/**
+ * Cliente Neon con inicialización perezosa: si falta DATABASE_URL, el error
+ * recién surge cuando se hace la primera consulta (dentro del try/catch del
+ * handler), en vez de reventar la función entera al importar el módulo.
+ */
+export const sql: ClienteNeon = ((strings: TemplateStringsArray, ...values: unknown[]) =>
+  obtenerCliente()(strings, ...values)) as ClienteNeon;
 
 let esquemaListo: Promise<void> | null = null;
 
@@ -29,7 +46,10 @@ export function asegurarEsquema(): Promise<void> {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
       `;
-    })();
+    })().catch((err) => {
+      esquemaListo = null; // permitir reintentar en la próxima request si falló
+      throw err;
+    });
   }
   return esquemaListo;
 }

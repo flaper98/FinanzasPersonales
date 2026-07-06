@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, asegurarEsquema } from '../_lib/db';
 import { obtenerUserId } from '../_lib/auth';
+import { conManejoDeErrores } from '../_lib/http';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default conManejoDeErrores(async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Método no permitido.' });
     return;
@@ -21,4 +22,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
   res.status(200).json({ email: usuario.email });
-}
+});

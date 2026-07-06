@@ -1,12 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql, asegurarEsquema } from '../_lib/db';
 import { hashPassword, crearSesionToken, setearCookieSesion } from '../_lib/auth';
+import { conManejoDeErrores } from '../_lib/http';
 
 function emailValido(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default conManejoDeErrores(async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Método no permitido.' });
     return;
@@ -37,4 +38,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = await crearSesionToken(usuario.id);
   setearCookieSesion(res, token);
   res.status(201).json({ email: usuario.email });
-}
+});
