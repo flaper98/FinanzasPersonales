@@ -220,5 +220,6 @@ function rowToEgreso(row: Record<string, unknown>): NewEgresoInput {
     accion: parseAccion(getField(row, 'Accion', 'Acción')),
     ingresoId: null,
     pagoConTarjeta: /tarjeta/i.test(pagarCon),
+    prestamoId: null,
   };
 }

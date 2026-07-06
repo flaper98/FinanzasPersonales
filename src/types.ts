@@ -30,6 +30,8 @@ export interface Egreso {
   ingresoId: string | null;
   /** Si se va a pagar cargándolo a la tarjeta de crédito (en vez de con un ingreso directo). */
   pagoConTarjeta: boolean;
+  /** Id del Préstamo (en Préstamos) del que este egreso es la cuota mensual, o null si no aplica. */
+  prestamoId: string | null;
 }
 
 export interface MonthData {

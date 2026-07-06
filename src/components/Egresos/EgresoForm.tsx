@@ -30,8 +30,10 @@ export function EgresoForm({
   const [metodoPago, setMetodoPago] = useState<string>(
     initial?.pagoConTarjeta ? TARJETA_CREDITO : (initial?.ingresoId ?? ''),
   );
-  const { selectedMonth } = useFinance();
+  const [prestamoId, setPrestamoId] = useState(initial?.prestamoId ?? '');
+  const { selectedMonth, state } = useFinance();
   const ingresosDisponibles = selectedMonth?.ingresos ?? [];
+  const prestamosDisponibles = state.prestamos;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,6 +48,7 @@ export function EgresoForm({
       accion,
       ingresoId: pagoConTarjeta ? null : metodoPago || null,
       pagoConTarjeta,
+      prestamoId: prestamoId || null,
     });
     onClose();
   }
@@ -179,6 +182,29 @@ export function EgresoForm({
             ))}
           </select>
         </div>
+
+        {prestamosDisponibles.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">¿Es la cuota de un préstamo?</label>
+            <select
+              value={prestamoId}
+              onChange={(e) => setPrestamoId(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+              <option value="">No</option>
+              {prestamosDisponibles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.entidad}
+                  {p.detalle ? ` — ${p.detalle}` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-400 mt-1">
+              Si lo vinculas, marcar este egreso como Pagado descuenta capital e interés de ese préstamo
+              automáticamente.
+            </p>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 pt-2">
           <button

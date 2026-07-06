@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type {
+  Accion,
   Egreso,
   FinanceState,
   Ingreso,
@@ -7,6 +8,7 @@ import type {
   NewEgresoInput,
   NewIngresoInput,
   NewPrestamoInput,
+  Prestamo,
   TarjetaCredito,
 } from '../types';
 import { loadState } from '../lib/storage';
@@ -19,6 +21,7 @@ import {
   arrastrarEgresosFijos,
   arrastrarIngresosFijos,
   dashboardTotals,
+  aplicarPagoAPrestamo,
   TARJETA_CREDITO,
 } from '../lib/calculations';
 import { currentMonthKey, nextMonthKey, sortedMonthKeys } from '../lib/monthUtils';
@@ -71,7 +74,11 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
       ...month,
       saldoInicial: month.saldoInicial ?? 0,
       ingresos: month.ingresos.map((i) => ({ ...i, detalle: normalizarDetalle(i.detalle) })),
-      egresos: month.egresos.map((e) => ({ ...e, detalle: normalizarDetalle(e.detalle) })),
+      egresos: month.egresos.map((e) => ({
+        ...e,
+        detalle: normalizarDetalle(e.detalle),
+        prestamoId: e.prestamoId ?? null,
+      })),
     };
   }
   return {
@@ -79,6 +86,19 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
     tarjetaCredito: state.tarjetaCredito ?? { limite: 0, saldoActual: 0 },
     prestamos: state.prestamos ?? [],
   };
+}
+
+/**
+ * Cuando un egreso vinculado a un préstamo (`prestamoId`) cambia de accion,
+ * refleja ese pago (o su reversa) en el saldo del préstamo. No hace nada si
+ * el egreso no está vinculado o si la accion no cambió.
+ */
+function ajustarPrestamosPorAccion(prestamos: Prestamo[], egresoAnterior: Egreso, nuevaAccion: Accion): Prestamo[] {
+  if (!egresoAnterior.prestamoId || egresoAnterior.accion === nuevaAccion) return prestamos;
+  const direccion = nuevaAccion === 'PAGADO' ? 1 : -1;
+  return prestamos.map((p) =>
+    p.id === egresoAnterior.prestamoId ? aplicarPagoAPrestamo(p, egresoAnterior.monto, direccion) : p,
+  );
 }
 
 function ensureMonth(state: FinanceState, key: string): FinanceState {
@@ -249,9 +269,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   }
 
   function actualizarEgreso(id: string, input: NewEgresoInput) {
-    updateMonth(selectedMonthKey, (month) => ({
-      ...month,
-      egresos: month.egresos.map((e) =>
+    setState((prev) => {
+      const month = prev.months[selectedMonthKey];
+      if (!month) return prev;
+      const anterior = month.egresos.find((e) => e.id === id);
+      if (!anterior) return prev;
+
+      const egresos = month.egresos.map((e) =>
         e.id === id
           ? {
               ...e,
@@ -260,8 +284,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
               finalizado: esFinalizado(input.cuotasTotales, input.cuotaActual),
             }
           : e,
-      ),
-    }));
+      );
+
+      return {
+        ...prev,
+        months: { ...prev.months, [selectedMonthKey]: { ...month, egresos } },
+        prestamos: ajustarPrestamosPorAccion(prev.prestamos, anterior, input.accion),
+      };
+    });
   }
 
   function eliminarEgreso(id: string) {
@@ -272,10 +302,25 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   }
 
   function alternarPagado(id: string) {
-    updateMonth(selectedMonthKey, (month) => ({
-      ...month,
-      egresos: month.egresos.map((e) => (e.id === id ? toggleAccion(e) : e)),
-    }));
+    setState((prev) => {
+      const month = prev.months[selectedMonthKey];
+      if (!month) return prev;
+      const anterior = month.egresos.find((e) => e.id === id);
+      if (!anterior) return prev;
+      const actualizado = toggleAccion(anterior);
+
+      return {
+        ...prev,
+        months: {
+          ...prev.months,
+          [selectedMonthKey]: {
+            ...month,
+            egresos: month.egresos.map((e) => (e.id === id ? actualizado : e)),
+          },
+        },
+        prestamos: ajustarPrestamosPorAccion(prev.prestamos, anterior, actualizado.accion),
+      };
+    });
   }
 
   function alternarCobrado(id: string) {

@@ -12,7 +12,7 @@ function formatMonto(n: number): string {
 type Filtro = 'TODOS' | 'FIJO' | 'NO FIJO';
 
 export function EgresosPage() {
-  const { selectedMonth, agregarEgreso, actualizarEgreso, eliminarEgreso, alternarPagado } = useFinance();
+  const { selectedMonth, state, agregarEgreso, actualizarEgreso, eliminarEgreso, alternarPagado } = useFinance();
   const [editando, setEditando] = useState<Egreso | null>(null);
   const [creando, setCreando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
@@ -27,6 +27,7 @@ export function EgresosPage() {
   }, [egresos, filtro, busqueda]);
   const total = visibles.reduce((s, e) => s + e.monto, 0);
   const detalleIngresoPorId = new Map((selectedMonth?.ingresos ?? []).map((i) => [i.id, i.detalle]));
+  const detallePrestamoPorId = new Map(state.prestamos.map((p) => [p.id, p.entidad]));
 
   return (
     <div className="space-y-4">
@@ -101,6 +102,11 @@ export function EgresosPage() {
                             Se paga con: {detalleIngresoPorId.get(e.ingresoId)}
                           </div>
                         )
+                      )}
+                      {e.prestamoId && detallePrestamoPorId.has(e.prestamoId) && (
+                        <div className="text-xs font-normal text-purple-500">
+                          🏦 Cuota de: {detallePrestamoPorId.get(e.prestamoId)}
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right text-rose-600 font-semibold whitespace-nowrap">

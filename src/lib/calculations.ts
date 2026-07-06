@@ -258,6 +258,27 @@ export interface ResumenPrestamo {
   ratioInteres: number;
 }
 
+/**
+ * Aplica (o revierte) el pago de una cuota a un préstamo vinculado: reparte
+ * `monto` entre capital e interés en proporción a `interesPendiente /
+ * saldoCapital` (la misma proporción de todo el saldo pendiente, ya que no
+ * tenemos el desglose exacto de cada cuota del banco) y avanza (o retrocede)
+ * `cuotaActual` en 1. `direccion` es 1 al marcar Pagado y -1 al revertir a
+ * No Pagado — como el reparto es proporcional, revertir reconstruye
+ * exactamente los montos originales (la proporción no cambia con pagos).
+ */
+export function aplicarPagoAPrestamo(prestamo: Prestamo, monto: number, direccion: 1 | -1): Prestamo {
+  const ratio = prestamo.saldoCapital > 0 ? prestamo.interesPendiente / prestamo.saldoCapital : 0;
+  const capitalPortion = monto / (1 + ratio);
+  const interesPortion = monto - capitalPortion;
+  return {
+    ...prestamo,
+    saldoCapital: Math.max(prestamo.saldoCapital - direccion * capitalPortion, 0),
+    interesPendiente: Math.max(prestamo.interesPendiente - direccion * interesPortion, 0),
+    cuotaActual: Math.min(Math.max(prestamo.cuotaActual + direccion, 0), prestamo.cuotasTotales),
+  };
+}
+
 export function resumenPrestamo(prestamo: Prestamo): ResumenPrestamo {
   const cuotasRestantes = Math.max(prestamo.cuotasTotales - prestamo.cuotaActual, 0);
   const totalPendiente = prestamo.saldoCapital + prestamo.interesPendiente;
