@@ -1,6 +1,6 @@
 import { useFinance } from '../../context/FinanceContext';
 import { resumenPlanificador } from '../../lib/calculations';
-import { monthLabel } from '../../lib/monthUtils';
+import { formatIsoDate, monthLabel } from '../../lib/monthUtils';
 import type { Egreso } from '../../types';
 
 function formatMonto(n: number): string {
@@ -46,8 +46,7 @@ function FilaEgreso({
       <div className="min-w-0">
         <div className="font-medium text-slate-800 truncate">{egreso.detalle}</div>
         <div className="text-xs text-slate-400">
-          {formatMonto(egreso.monto)} ·{' '}
-          <span className={egreso.accion === 'PAGADO' ? 'text-emerald-600' : 'text-amber-600'}>{egreso.accion}</span>
+          {formatMonto(egreso.monto)} · Vence {formatIsoDate(egreso.fecha)}
         </div>
       </div>
       <SelectorFuente egreso={egreso} ingresos={ingresos} onChange={onChange} />

@@ -29,21 +29,23 @@ export function toggleAccion(egreso: Egreso): Egreso {
 }
 
 export interface DashboardTotals {
+  saldoInicial: number;
   totalIngresos: number;
   totalEgresos: number;
-  /** Ingresos totales - egresos totales (proyectado, sin importar si ya se cobraron/pagaron). */
+  /** Saldo inicial + ingresos totales - egresos totales (proyectado, sin importar si ya se cobraron/pagaron). */
   balanceProyectado: number;
   montoCobrado: number;
   montoPorCobrar: number;
   montoPagado: number;
   montoPendiente: number;
-  /** Cobrado - Pagado: el saldo real disponible en este momento. */
+  /** Saldo inicial + Cobrado - Pagado: el saldo real disponible en este momento. */
   saldoReal: number;
   pctPagado: number;
   pctCobrado: number;
 }
 
 export function dashboardTotals(month: MonthData | undefined): DashboardTotals {
+  const saldoInicial = month?.saldoInicial ?? 0;
   const ingresos = month?.ingresos ?? [];
   const egresos = month?.egresos ?? [];
 
@@ -60,14 +62,15 @@ export function dashboardTotals(month: MonthData | undefined): DashboardTotals {
   const pctCobrado = totalIngresos > 0 ? (montoCobrado / totalIngresos) * 100 : 0;
 
   return {
+    saldoInicial,
     totalIngresos,
     totalEgresos,
-    balanceProyectado: totalIngresos - totalEgresos,
+    balanceProyectado: saldoInicial + totalIngresos - totalEgresos,
     montoCobrado,
     montoPorCobrar,
     montoPagado,
     montoPendiente,
-    saldoReal: montoCobrado - montoPagado,
+    saldoReal: saldoInicial + montoCobrado - montoPagado,
     pctPagado,
     pctCobrado,
   };
@@ -160,7 +163,9 @@ export function totalIngresos(ingresos: Ingreso[]): number {
 
 export interface AsignacionIngreso {
   ingreso: Ingreso;
+  /** Solo los pendientes (NO PAGADO): una vez pagado, ya no hay nada que planificar. */
   egresosAsignados: Egreso[];
+  /** Monto total asignado (pagados + pendientes), para que "disponible" refleje lo ya gastado. */
   totalAsignado: number;
   /** monto del ingreso - total asignado. Negativo si se comprometió más de lo que ese ingreso cubre. */
   disponible: number;
@@ -173,9 +178,11 @@ export interface ResumenPlanificador {
 }
 
 /**
- * Agrupa los egresos del mes según con qué ingreso se planea pagarlos, para
- * saber cuánto de cada ingreso ya está comprometido y cuánto queda libre.
- * Los egresos sin `ingresoId` (o cuyo ingreso ya no existe) caen en "sinAsignar".
+ * Agrupa los egresos pendientes del mes según con qué ingreso se planea
+ * pagarlos, para saber cuánto de cada ingreso ya está comprometido y cuánto
+ * queda libre. Los ya pagados no se muestran (no hay nada que planificar),
+ * pero su monto sigue restando del disponible. Los egresos sin `ingresoId`
+ * (o cuyo ingreso ya no existe) caen en "sinAsignar".
  */
 export function resumenPlanificador(month: MonthData | undefined): ResumenPlanificador {
   const ingresos = month?.ingresos ?? [];
@@ -183,12 +190,15 @@ export function resumenPlanificador(month: MonthData | undefined): ResumenPlanif
   const idsIngresos = new Set(ingresos.map((i) => i.id));
 
   const asignaciones: AsignacionIngreso[] = ingresos.map((ingreso) => {
-    const egresosAsignados = egresos.filter((e) => e.ingresoId === ingreso.id);
-    const totalAsignado = egresosAsignados.reduce((sum, e) => sum + e.monto, 0);
+    const todosAsignados = egresos.filter((e) => e.ingresoId === ingreso.id);
+    const totalAsignado = todosAsignados.reduce((sum, e) => sum + e.monto, 0);
+    const egresosAsignados = todosAsignados.filter((e) => e.accion === 'NO PAGADO');
     return { ingreso, egresosAsignados, totalAsignado, disponible: ingreso.monto - totalAsignado };
   });
 
-  const sinAsignar = egresos.filter((e) => !e.ingresoId || !idsIngresos.has(e.ingresoId));
+  const sinAsignar = egresos.filter(
+    (e) => e.accion === 'NO PAGADO' && (!e.ingresoId || !idsIngresos.has(e.ingresoId)),
+  );
   const totalSinAsignar = sinAsignar.reduce((sum, e) => sum + e.monto, 0);
 
   return { asignaciones, sinAsignar, totalSinAsignar };

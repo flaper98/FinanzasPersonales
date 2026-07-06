@@ -33,7 +33,7 @@ export function SummaryCards({ totals }: { totals: DashboardTotals }) {
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="bg-slate-900 rounded-xl shadow-sm p-5">
           <div className="text-xs font-medium text-slate-300 uppercase tracking-wide">
-            Saldo real (cobrado − pagado)
+            Saldo real (actual + cobrado − pagado)
           </div>
           <div className={`text-3xl font-bold mt-1 ${totals.saldoReal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {formatMonto(totals.saldoReal)}
@@ -47,7 +47,9 @@ export function SummaryCards({ totals }: { totals: DashboardTotals }) {
           <div className={`text-3xl font-bold mt-1 ${totals.balanceProyectado >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
             {formatMonto(totals.balanceProyectado)}
           </div>
-          <div className="text-xs text-slate-400 mt-1">Ingresos totales − egresos totales, sin importar el estado</div>
+          <div className="text-xs text-slate-400 mt-1">
+            Monto actual + ingresos totales − egresos totales, sin importar el estado
+          </div>
         </div>
       </div>
 

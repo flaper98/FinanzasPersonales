@@ -33,6 +33,8 @@ export interface Egreso {
 export interface MonthData {
   /** yyyy-MM */
   key: string;
+  /** Dinero que ya tenías al empezar el mes (efectivo/cuenta), antes de cualquier ingreso o egreso de este mes. */
+  saldoInicial: number;
   ingresos: Ingreso[];
   egresos: Egreso[];
 }

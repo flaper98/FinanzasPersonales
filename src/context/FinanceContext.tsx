@@ -9,6 +9,7 @@ import {
   esFinalizado,
   arrastrarEgresosFijos,
   arrastrarIngresosFijos,
+  dashboardTotals,
 } from '../lib/calculations';
 import { currentMonthKey, nextMonthKey, sortedMonthKeys } from '../lib/monthUtils';
 import { normalizarDetalle } from '../lib/text';
@@ -34,6 +35,7 @@ interface FinanceContextValue {
   eliminarEgreso: (id: string) => void;
   alternarPagado: (id: string) => void;
   alternarCobrado: (id: string) => void;
+  actualizarSaldoInicial: (monto: number) => void;
   asignarFuentePago: (egresoId: string, ingresoId: string | null) => void;
   reemplazarEstado: (nuevo: FinanceState) => void;
   importarFilas: (ingresos: NewIngresoInput[], egresos: NewEgresoInput[]) => void;
@@ -43,12 +45,17 @@ interface FinanceContextValue {
 
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
-/** Normaliza el detalle de todo lo ya guardado, para que datos antiguos (de antes de esta normalización) también se vean consistentes. */
+/**
+ * Normaliza el detalle de todo lo ya guardado (para que datos antiguos se
+ * vean consistentes) y rellena `saldoInicial` en meses guardados antes de
+ * que existiera ese campo.
+ */
 function normalizarDetallesEstado(state: FinanceState): FinanceState {
   const months: FinanceState['months'] = {};
   for (const [key, month] of Object.entries(state.months)) {
     months[key] = {
       ...month,
+      saldoInicial: month.saldoInicial ?? 0,
       ingresos: month.ingresos.map((i) => ({ ...i, detalle: normalizarDetalle(i.detalle) })),
       egresos: month.egresos.map((e) => ({ ...e, detalle: normalizarDetalle(e.detalle) })),
     };
@@ -61,7 +68,7 @@ function ensureMonth(state: FinanceState, key: string): FinanceState {
   return {
     months: {
       ...state.months,
-      [key]: { key, ingresos: [], egresos: [] },
+      [key]: { key, saldoInicial: 0, ingresos: [], egresos: [] },
     },
   };
 }
@@ -166,10 +173,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       ...e,
       ingresoId: e.ingresoId && mapaIngresoId.has(e.ingresoId) ? mapaIngresoId.get(e.ingresoId)! : null,
     }));
+    // El saldo con el que termina el mes anterior (saldo inicial + cobrado - pagado) pasa a ser el punto de partida del nuevo mes.
+    const saldoInicial = dashboardTotals(mesAnterior).saldoReal;
     setState((prev) => ({
       months: {
         ...prev.months,
-        [nuevaClave]: { key: nuevaClave, ingresos: ingresosArrastrados, egresos: egresosArrastrados },
+        [nuevaClave]: { key: nuevaClave, saldoInicial, ingresos: ingresosArrastrados, egresos: egresosArrastrados },
       },
     }));
     setSelectedMonthKey(nuevaClave);
@@ -251,6 +260,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     }));
   }
 
+  function actualizarSaldoInicial(monto: number) {
+    updateMonth(selectedMonthKey, (month) => ({ ...month, saldoInicial: monto }));
+  }
+
   function asignarFuentePago(egresoId: string, ingresoId: string | null) {
     updateMonth(selectedMonthKey, (month) => ({
       ...month,
@@ -321,6 +334,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     eliminarEgreso,
     alternarPagado,
     alternarCobrado,
+    actualizarSaldoInicial,
     asignarFuentePago,
     reemplazarEstado,
     importarFilas,
