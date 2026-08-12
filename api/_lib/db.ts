@@ -39,6 +39,8 @@ export function asegurarEsquema(): Promise<void> {
           created_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
       `;
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash TEXT`;
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMPTZ`;
       await sql`
         CREATE TABLE IF NOT EXISTS finance_data (
           user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

@@ -11,6 +11,8 @@ interface AuthContextValue {
   iniciarSesion: (email: string, password: string) => Promise<void>;
   registrarse: (email: string, password: string) => Promise<void>;
   cerrarSesion: () => Promise<void>;
+  pedirRecuperacion: (email: string) => Promise<void>;
+  resetearPassword: (token: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -41,7 +43,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUsuario(null);
   }
 
-  const value: AuthContextValue = { usuario, cargando, iniciarSesion, registrarse, cerrarSesion };
+  async function pedirRecuperacion(email: string) {
+    await apiPost('/auth/forgot-password', { email });
+  }
+
+  async function resetearPassword(token: string, password: string) {
+    const data = await apiPost<Usuario>('/auth/reset-password', { token, password });
+    setUsuario(data);
+  }
+
+  const value: AuthContextValue = {
+    usuario,
+    cargando,
+    iniciarSesion,
+    registrarse,
+    cerrarSesion,
+    pedirRecuperacion,
+    resetearPassword,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

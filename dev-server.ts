@@ -51,6 +51,8 @@ const rutas: Record<string, () => Promise<{ default: (req: never, res: never) =>
   '/api/auth/login': () => import('./api/auth/login.ts'),
   '/api/auth/logout': () => import('./api/auth/logout.ts'),
   '/api/auth/me': () => import('./api/auth/me.ts'),
+  '/api/auth/forgot-password': () => import('./api/auth/forgot-password.ts'),
+  '/api/auth/reset-password': () => import('./api/auth/reset-password.ts'),
   '/api/finance': () => import('./api/finance.ts'),
 };
 

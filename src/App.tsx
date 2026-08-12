@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider, useFinance } from './context/FinanceContext';
 import { NotificationSync } from './components/NotificationSync';
 import { LoginPage } from './components/Auth/LoginPage';
+import { ResetPasswordPage } from './components/Auth/ResetPasswordPage';
 import { Modal } from './components/common/Modal';
 import { Sidebar, MobileSidebar } from './components/Layout/Sidebar';
 import { TopBar } from './components/Layout/TopBar';
@@ -117,11 +118,22 @@ function AppShell() {
 
 function Gate() {
   const { usuario, cargando } = useAuth();
+  const [resetToken, setResetToken] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('reset'),
+  );
+
+  function limpiarTokenReset() {
+    window.history.replaceState({}, '', window.location.pathname);
+    setResetToken(null);
+  }
 
   if (cargando) {
     return <div className="min-h-screen grid place-items-center text-sm text-slate-500">Cargando…</div>;
   }
   if (!usuario) {
+    if (resetToken) {
+      return <ResetPasswordPage token={resetToken} onVolver={limpiarTokenReset} />;
+    }
     return <LoginPage />;
   }
   return (

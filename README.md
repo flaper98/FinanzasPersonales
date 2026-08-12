@@ -48,6 +48,18 @@ Las tablas de la base de datos (`users`, `finance_data`) se crean solas la prime
 
 **No hay que crear cuentas manualmente**: cualquiera que entre a la app puede registrarse desde la pantalla de login. Cada cuenta ve únicamente sus propios ingresos y egresos.
 
+## Recuperar contraseña
+
+Desde la pantalla de login, "¿Olvidaste tu contraseña?" envía un correo con un link de un solo uso (vence en 1 hora) para elegir una contraseña nueva. Para que esto funcione hace falta una cuenta en [resend.com](https://resend.com) (tiene un free tier de 3000 correos/mes, de sobra para uso personal):
+
+1. Creá una cuenta gratis en Resend y generá una API key.
+2. Elegí el remitente:
+   - **Para probar rápido**: usá `EMAIL_FROM=onboarding@resend.dev` (el dominio de pruebas que da Resend, no requiere verificación).
+   - **Para producción**: verificá tu propio dominio en Resend (Domains → Add Domain) y usá una dirección de ese dominio, ej. `EMAIL_FROM=noreply@tudominio.com`.
+3. Agregá `RESEND_API_KEY` y `EMAIL_FROM` a tu `.env` local y, para que funcione en producción, también en Vercel → Project Settings → Environment Variables.
+
+Si no configurás estas variables, el resto de la app funciona igual — solo falla el botón de "¿Olvidaste tu contraseña?" con un error indicando qué variable falta.
+
 ## Instalación y uso local
 
 Requiere Node.js 20 o superior (usa `process.loadEnvFile`), y haber completado el paso anterior (`.env` con `DATABASE_URL` y `JWT_SECRET`).
@@ -132,8 +144,10 @@ api/
   _lib/
     db.ts                   Cliente Neon + creación de tablas
     auth.ts                 Hash de contraseñas, JWT de sesión, cookies
+    email.ts                 Envío de correos vía Resend (recuperación de contraseña)
   auth/
     register.ts, login.ts, logout.ts, me.ts   Endpoints de autenticación
+    forgot-password.ts, reset-password.ts     Pedir y confirmar recuperación de contraseña
   finance.ts                GET/PUT de los datos (ingresos/egresos) del usuario autenticado
 dev-server.ts              Servidor local que corre /api sin Vercel (ver npm run dev:local)
 public/
@@ -154,7 +168,8 @@ src/
     AuthContext.tsx          Sesión: login, registro, logout, usuario actual
     FinanceContext.tsx       Estado de ingresos/egresos y acciones, persistido vía /api/finance
   components/
-    Auth/LoginPage.tsx       Pantalla de login/registro
+    Auth/LoginPage.tsx       Pantalla de login/registro/recuperar contraseña
+    Auth/ResetPasswordPage.tsx  Pantalla para elegir la contraseña nueva (desde el link del correo)
     NotificationSync.tsx     Sin UI: mantiene sincronizado el chequeo de vencimientos
     Layout/                  Sidebar (con cuenta/cerrar sesión) y selector de mes
     Dashboard/                Resumen y alertas
