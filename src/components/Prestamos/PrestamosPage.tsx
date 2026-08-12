@@ -3,6 +3,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { analisisAbonoCapital, resumenPrestamo } from '../../lib/calculations';
 import type { Prestamo } from '../../types';
 import { PrestamoForm } from './PrestamoForm';
+import { SimuladorAbonoModal } from './SimuladorAbonoModal';
 
 function formatMonto(n: number): string {
   return n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 });
@@ -59,10 +60,12 @@ function PrestamoCard({
   prestamo,
   onEdit,
   onDelete,
+  onSimular,
 }: {
   prestamo: Prestamo;
   onEdit: () => void;
   onDelete: () => void;
+  onSimular: () => void;
 }) {
   const resumen = resumenPrestamo(prestamo);
 
@@ -120,7 +123,12 @@ function PrestamoCard({
       {prestamo.tasaTCEA > 0 && <div className="text-xs text-slate-400">TCEA: {prestamo.tasaTCEA}% anual</div>}
 
       <div className="border-t border-slate-100 pt-3">
-        <h4 className="text-sm font-semibold text-slate-700 mb-2">💡 Análisis: cómo reducir esta deuda</h4>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-semibold text-slate-700">💡 Análisis: cómo reducir esta deuda</h4>
+          <button onClick={onSimular} className="text-xs font-medium text-brand-600 hover:underline whitespace-nowrap">
+            🧮 Simular abono
+          </button>
+        </div>
         <AnalisisPrestamo prestamo={prestamo} />
       </div>
     </div>
@@ -131,6 +139,7 @@ export function PrestamosPage() {
   const { state, agregarPrestamo, actualizarPrestamo, eliminarPrestamo } = useFinance();
   const [creando, setCreando] = useState(false);
   const [editando, setEditando] = useState<Prestamo | null>(null);
+  const [simulando, setSimulando] = useState<Prestamo | null>(null);
 
   const prestamos = [...state.prestamos].sort(
     (a, b) => resumenPrestamo(b).ratioInteres - resumenPrestamo(a).ratioInteres,
@@ -172,6 +181,7 @@ export function PrestamosPage() {
               prestamo={p}
               onEdit={() => setEditando(p)}
               onDelete={() => eliminarPrestamo(p.id)}
+              onSimular={() => setSimulando(p)}
             />
           ))}
         </div>
@@ -185,6 +195,7 @@ export function PrestamosPage() {
           onClose={() => setEditando(null)}
         />
       )}
+      {simulando && <SimuladorAbonoModal prestamo={simulando} onClose={() => setSimulando(null)} />}
     </div>
   );
 }

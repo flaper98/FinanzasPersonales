@@ -327,3 +327,121 @@ export function analisisAbonoCapital(month: MonthData | undefined, prestamo: Pre
 
   return { sugerencias, totalDisponible, ahorroEstimado };
 }
+
+function cuotaFrancesa(capital: number, tasaMensual: number, cuotas: number): number {
+  if (cuotas <= 0) return 0;
+  if (tasaMensual <= 0) return capital / cuotas;
+  return (capital * tasaMensual) / (1 - Math.pow(1 + tasaMensual, -cuotas));
+}
+
+/**
+ * Encuentra, por bisección, la tasa mensual efectiva que hace que un
+ * préstamo de `capital` a `cuotas` meses tenga exactamente `cuotaMensual`
+ * (sistema francés). Se usa en vez de pedirle la tasa al usuario porque el
+ * TCEA que aparece en el cronograma del banco incluye seguros/comisiones y
+ * no coincide con la tasa mensual "pura" que hace cuadrar cuota/capital/plazo.
+ */
+function tasaMensualImplicita(capital: number, cuotaMensual: number, cuotas: number): number {
+  if (capital <= 0 || cuotaMensual <= 0 || cuotas <= 0) return 0;
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+    if (cuotaFrancesa(capital, mid, cuotas) > cuotaMensual) hi = mid;
+    else lo = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+export interface CuotaSimulada {
+  numero: number;
+  capital: number;
+  interes: number;
+  cuota: number;
+  saldo: number;
+}
+
+/** Genera el cronograma cuota a cuota de pagar `capitalInicial` a `tasaMensual` con una cuota fija de `cuotaFija`. */
+function generarCronograma(capitalInicial: number, tasaMensual: number, cuotaFija: number): CuotaSimulada[] {
+  const cronograma: CuotaSimulada[] = [];
+  let saldo = capitalInicial;
+  let numero = 0;
+  const maxCuotas = 600; // 50 años, tope de seguridad ante datos inconsistentes
+  while (saldo > 0.01 && numero < maxCuotas) {
+    numero++;
+    const interes = saldo * tasaMensual;
+    let capital = cuotaFija - interes;
+    let cuota = cuotaFija;
+    if (capital >= saldo) {
+      capital = saldo;
+      cuota = saldo + interes;
+    }
+    saldo = Math.max(saldo - capital, 0);
+    cronograma.push({ numero, capital, interes, cuota, saldo });
+  }
+  return cronograma;
+}
+
+export interface SimulacionAbono {
+  modalidad: 'reducir_cuota' | 'reducir_plazo';
+  capitalTrasAbono: number;
+  cronogramaOriginal: CuotaSimulada[];
+  cronogramaNuevo: CuotaSimulada[];
+  interesOriginal: number;
+  interesNuevo: number;
+  ahorroInteres: number;
+  cuotasOriginal: number;
+  cuotasNuevo: number;
+  /** Solo relevante con modalidad 'reducir_cuota': la cuota mensual nueva (menor a la actual). */
+  cuotaMensualNueva: number;
+}
+
+/**
+ * Simula qué pasa si, además de la cuota normal, se hace un abono
+ * extraordinario a capital de `montoAbono`. Deriva la tasa mensual real del
+ * cronograma vigente (ver `tasaMensualImplicita`) y recalcula el resto del
+ * préstamo con matemática de amortización real (sistema francés), no una
+ * estimación proporcional.
+ */
+export function simularAbonoCapital(
+  prestamo: Prestamo,
+  montoAbono: number,
+  modalidad: 'reducir_cuota' | 'reducir_plazo',
+): SimulacionAbono | null {
+  const cuotasRestantes = Math.max(prestamo.cuotasTotales - prestamo.cuotaActual, 0);
+  if (prestamo.saldoCapital <= 0 || cuotasRestantes <= 0 || montoAbono <= 0) return null;
+
+  const tasaMensual = tasaMensualImplicita(prestamo.saldoCapital, prestamo.cuotaMensual, cuotasRestantes);
+  const cronogramaOriginal = generarCronograma(prestamo.saldoCapital, tasaMensual, prestamo.cuotaMensual);
+  const interesOriginal = cronogramaOriginal.reduce((sum, c) => sum + c.interes, 0);
+
+  const abonoEfectivo = Math.min(montoAbono, prestamo.saldoCapital);
+  const capitalTrasAbono = Math.max(prestamo.saldoCapital - abonoEfectivo, 0);
+
+  let cronogramaNuevo: CuotaSimulada[] = [];
+  let cuotaMensualNueva = prestamo.cuotaMensual;
+
+  if (capitalTrasAbono > 0) {
+    if (modalidad === 'reducir_plazo') {
+      cronogramaNuevo = generarCronograma(capitalTrasAbono, tasaMensual, prestamo.cuotaMensual);
+    } else {
+      cuotaMensualNueva = cuotaFrancesa(capitalTrasAbono, tasaMensual, cuotasRestantes);
+      cronogramaNuevo = generarCronograma(capitalTrasAbono, tasaMensual, cuotaMensualNueva);
+    }
+  }
+
+  const interesNuevo = cronogramaNuevo.reduce((sum, c) => sum + c.interes, 0);
+
+  return {
+    modalidad,
+    capitalTrasAbono,
+    cronogramaOriginal,
+    cronogramaNuevo,
+    interesOriginal,
+    interesNuevo,
+    ahorroInteres: interesOriginal - interesNuevo,
+    cuotasOriginal: cronogramaOriginal.length,
+    cuotasNuevo: cronogramaNuevo.length,
+    cuotaMensualNueva,
+  };
+}
