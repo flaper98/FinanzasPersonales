@@ -32,7 +32,8 @@ export function ProformaForm({
   const [validezDias, setValidezDias] = useState(initial?.validezDias?.toString() ?? '15');
   const [clienteNombre, setClienteNombre] = useState(initial?.clienteNombre ?? '');
   const [clienteRuc, setClienteRuc] = useState(initial?.clienteRuc ?? '');
-  const [clienteDireccion, setClienteDireccion] = useState(initial?.clienteDireccion ?? '');
+  const [clienteContacto, setClienteContacto] = useState(initial?.clienteContacto ?? '');
+  const [clienteCargo, setClienteCargo] = useState(initial?.clienteCargo ?? '');
   const [items, setItems] = useState<ItemProforma[]>(initial?.items?.length ? initial.items : [itemVacio()]);
   const [nota, setNota] = useState(initial?.nota ?? '');
 
@@ -52,7 +53,8 @@ export function ProformaForm({
       validezDias: parseInt(validezDias, 10) || 0,
       clienteNombre: clienteNombre.trim(),
       clienteRuc: clienteRuc.trim(),
-      clienteDireccion: clienteDireccion.trim(),
+      clienteContacto: clienteContacto.trim(),
+      clienteCargo: clienteCargo.trim(),
       items: items
         .filter((it) => it.descripcion.trim() !== '')
         .map((it) => ({ ...it, descripcion: it.descripcion.trim() })),
@@ -109,13 +111,25 @@ export function ProformaForm({
               <input value={clienteRuc} onChange={(e) => setClienteRuc(e.target.value)} className={inputClase} />
             </div>
           </div>
-          <div className="mt-3">
-            <label className="block text-xs font-medium text-slate-500 mb-1">Dirección</label>
-            <input
-              value={clienteDireccion}
-              onChange={(e) => setClienteDireccion(e.target.value)}
-              className={inputClase}
-            />
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Dirigido a</label>
+              <input
+                value={clienteContacto}
+                onChange={(e) => setClienteContacto(e.target.value)}
+                placeholder="Nombre de la persona de contacto"
+                className={inputClase}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Cargo</label>
+              <input
+                value={clienteCargo}
+                onChange={(e) => setClienteCargo(e.target.value)}
+                placeholder="Gerente General"
+                className={inputClase}
+              />
+            </div>
           </div>
         </div>
 

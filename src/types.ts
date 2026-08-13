@@ -126,7 +126,10 @@ export interface Proforma {
   validezDias: number;
   clienteNombre: string;
   clienteRuc: string;
-  clienteDireccion: string;
+  /** Persona de contacto a quien se dirige la proforma, ej. "Juan Pérez". */
+  clienteContacto: string;
+  /** Cargo de esa persona, ej. "Gerente General". */
+  clienteCargo: string;
   items: ItemProforma[];
   /** Notas adicionales, ej. condiciones especiales (la forma de pago sale de DatosEmpresa). */
   nota: string;

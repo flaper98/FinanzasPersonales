@@ -14,6 +14,7 @@ import type {
   NewTarjetaCreditoInput,
   Prestamo,
   PresupuestoMensual,
+  PresupuestoProyecto,
   Proforma,
 } from '../types';
 import { loadState } from '../lib/storage';
@@ -30,7 +31,7 @@ import {
   tarjetaIdDesdeValor,
   totalProforma,
 } from '../lib/calculations';
-import { currentMonthKey, monthKeyOfIso, nextMonthKey, sortedMonthKeys } from '../lib/monthUtils';
+import { currentMonthKey, monthKeyOfIso, nextMonthKey, sortedMonthKeys, todayIso } from '../lib/monthUtils';
 import { normalizarDetalle } from '../lib/text';
 
 interface FinanceContextValue {
@@ -70,6 +71,8 @@ interface FinanceContextValue {
   actualizarPresupuestoProyecto: (id: string, input: NewPresupuestoProyectoInput) => void;
   eliminarPresupuestoProyecto: (id: string) => void;
   actualizarPresupuestoMensual: (presupuesto: PresupuestoMensual) => void;
+  agregarIngresoDesdeProyecto: (proyecto: PresupuestoProyecto) => void;
+  agregarEgresosDesdeProyecto: (proyecto: PresupuestoProyecto) => void;
   asignarFuentePago: (egresoId: string, ingresoId: string | null) => void;
   reemplazarEstado: (nuevo: FinanceState) => void;
   importarFilas: (ingresos: NewIngresoInput[], egresos: NewEgresoInput[]) => void;
@@ -505,6 +508,46 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     updateMonth(selectedMonthKey, (month) => ({ ...month, presupuesto }));
   }
 
+  /** Crea un Ingreso por el monto total a cobrar del proyecto, en el mes seleccionado. Queda NO COBRADO. */
+  function agregarIngresoDesdeProyecto(proyecto: PresupuestoProyecto) {
+    updateMonth(selectedMonthKey, (month) => ({
+      ...month,
+      ingresos: [
+        ...month.ingresos,
+        {
+          id: newId(),
+          detalle: normalizarDetalle(proyecto.nombre),
+          monto: proyecto.montoTotal,
+          fecha: todayIso(),
+          fijo: false,
+          estado: 'NO COBRADO',
+        },
+      ],
+    }));
+  }
+
+  /** Crea un Egreso por cada costo del proyecto (con monto > 0), en el mes seleccionado. Quedan NO PAGADO. */
+  function agregarEgresosDesdeProyecto(proyecto: PresupuestoProyecto) {
+    const nuevos: Egreso[] = proyecto.costos
+      .filter((c) => c.monto > 0)
+      .map((c) => ({
+        id: newId(),
+        detalle: normalizarDetalle(`${proyecto.nombre}: ${c.nombre}`),
+        monto: c.monto,
+        fecha: todayIso(),
+        tipo: 'NO FIJO',
+        cuotasTotales: 1,
+        cuotaActual: 0,
+        accion: 'NO PAGADO',
+        finalizado: false,
+        ingresoId: null,
+        tarjetaId: null,
+        prestamoId: null,
+      }));
+    if (nuevos.length === 0) return;
+    updateMonth(selectedMonthKey, (month) => ({ ...month, egresos: [...month.egresos, ...nuevos] }));
+  }
+
   /** `valor` es el id de un Ingreso, `valorParaTarjeta(id)` para marcarlo a cargar a esa tarjeta, o null para quitar la asignación. */
   function asignarFuentePago(egresoId: string, valor: string | null) {
     const tarjetaId = valor ? tarjetaIdDesdeValor(valor) : null;
@@ -595,6 +638,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     actualizarPresupuestoProyecto,
     eliminarPresupuestoProyecto,
     actualizarPresupuestoMensual,
+    agregarIngresoDesdeProyecto,
+    agregarEgresosDesdeProyecto,
     asignarFuentePago,
     reemplazarEstado,
     importarFilas,

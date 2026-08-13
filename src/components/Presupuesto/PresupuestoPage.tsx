@@ -97,10 +97,14 @@ function TarjetaProyecto({
   proyecto,
   onEdit,
   onDelete,
+  onEnviarIngreso,
+  onEnviarEgresos,
 }: {
   proyecto: PresupuestoProyecto;
   onEdit: () => void;
   onDelete: () => void;
+  onEnviarIngreso: () => void;
+  onEnviarEgresos: () => void;
 }) {
   const ganancia = gananciaProyecto(proyecto);
   const totalCostos = totalItemsPresupuesto(proyecto.costos);
@@ -153,15 +157,46 @@ function TarjetaProyecto({
           ))}
         </ul>
       )}
+
+      <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-xs font-medium">
+        <button onClick={onEnviarIngreso} className="text-emerald-600 hover:underline">
+          → Enviar monto total a Ingresos
+        </button>
+        <button
+          onClick={onEnviarEgresos}
+          disabled={totalCostos === 0}
+          className="text-rose-600 hover:underline disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          → Enviar costos a Egresos
+        </button>
+      </div>
     </div>
   );
 }
 
 function SeccionProyectos() {
-  const { state, agregarPresupuestoProyecto, actualizarPresupuestoProyecto, eliminarPresupuestoProyecto } =
-    useFinance();
+  const {
+    state,
+    selectedMonthKey,
+    agregarPresupuestoProyecto,
+    actualizarPresupuestoProyecto,
+    eliminarPresupuestoProyecto,
+    agregarIngresoDesdeProyecto,
+    agregarEgresosDesdeProyecto,
+  } = useFinance();
   const [creando, setCreando] = useState(false);
   const [editando, setEditando] = useState<PresupuestoProyecto | null>(null);
+  const [mensaje, setMensaje] = useState<string | null>(null);
+
+  function handleEnviarIngreso(p: PresupuestoProyecto) {
+    agregarIngresoDesdeProyecto(p);
+    setMensaje(`Se agregó "${p.nombre}" a Ingresos de ${monthLabel(selectedMonthKey)}, como NO COBRADO.`);
+  }
+
+  function handleEnviarEgresos(p: PresupuestoProyecto) {
+    agregarEgresosDesdeProyecto(p);
+    setMensaje(`Se agregaron los costos de "${p.nombre}" a Egresos de ${monthLabel(selectedMonthKey)}, como NO PAGADO.`);
+  }
 
   return (
     <div className="space-y-4">
@@ -178,6 +213,15 @@ function SeccionProyectos() {
         </button>
       </div>
 
+      {mensaje && <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{mensaje}</p>}
+
+      {state.presupuestosProyecto.length > 0 && (
+        <p className="text-xs text-slate-400">
+          "Enviar a Ingresos/Egresos" los agrega al mes que tengas seleccionado arriba ({monthLabel(selectedMonthKey)}
+          ) — cambialo desde el selector de mes si querés otro.
+        </p>
+      )}
+
       {state.presupuestosProyecto.length === 0 ? (
         <p className="text-sm text-slate-500 py-8 text-center">
           No tienes proyectos todavía. Creá uno, opcionalmente vinculado a una proforma.
@@ -190,6 +234,8 @@ function SeccionProyectos() {
               proyecto={p}
               onEdit={() => setEditando(p)}
               onDelete={() => eliminarPresupuestoProyecto(p.id)}
+              onEnviarIngreso={() => handleEnviarIngreso(p)}
+              onEnviarEgresos={() => handleEnviarEgresos(p)}
             />
           ))}
         </div>

@@ -93,7 +93,8 @@ export function ProformaPreview({
                   <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Destinatario</div>
                   <div className="font-semibold text-slate-800">{proforma.clienteNombre || '—'}</div>
                   {proforma.clienteRuc && <div>RUC: {proforma.clienteRuc}</div>}
-                  {proforma.clienteDireccion && <div>{proforma.clienteDireccion}</div>}
+                  {proforma.clienteContacto && <div>Dirigido a: {proforma.clienteContacto}</div>}
+                  {proforma.clienteCargo && <div>Cargo: {proforma.clienteCargo}</div>}
                 </div>
               </div>
 
