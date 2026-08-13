@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
-import { resumenPlanificador, resumenTarjeta, tarjetaIdDesdeValor, valorParaTarjeta } from '../../lib/calculations';
-import { formatIsoDate, monthLabel } from '../../lib/monthUtils';
+import { resumenPlanificador, resumenTarjeta, valorParaTarjeta } from '../../lib/calculations';
+import { formatIsoDate, monthLabel, ordenarPorFecha } from '../../lib/monthUtils';
 import type { Egreso, TarjetaCredito } from '../../types';
 
 function formatMonto(n: number): string {
@@ -91,11 +92,27 @@ function FilaEgreso({
   );
 }
 
+/**
+ * Encabezado de sección consistente: ícono + título + contador, para escanear la página de un
+ * vistazo. Es un `<div>` (no `<h3>`) porque una de las secciones lo usa dentro de un `<button>`
+ * colapsable, y los encabezados no son contenido válido ahí.
+ */
+function EncabezadoSeccion({ icono, titulo, contador }: { icono: string; titulo: string; contador: number }) {
+  return (
+    <div className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+      <span aria-hidden>{icono}</span>
+      {titulo}
+      <span className="text-slate-400 font-normal">({contador})</span>
+    </div>
+  );
+}
+
 export function PlanificadorPage() {
   const { state, selectedMonth, selectedMonthKey, asignarFuentePago } = useFinance();
   const resumen = resumenPlanificador(selectedMonth);
   const ingresosParaSelector = (selectedMonth?.ingresos ?? []).map((i) => ({ id: i.id, detalle: i.detalle }));
   const tarjetasParaSelector = state.tarjetasCredito;
+  const [mostrarSinGastos, setMostrarSinGastos] = useState(false);
 
   const gruposPorTarjeta = new Map<string, Egreso[]>();
   for (const e of resumen.aCargarTarjeta) {
@@ -105,6 +122,17 @@ export function PlanificadorPage() {
 
   const totalIngresos = resumen.asignaciones.reduce((s, a) => s + a.ingreso.monto, 0);
   const totalAsignado = resumen.asignaciones.reduce((s, a) => s + a.totalAsignado, 0);
+
+  // Separa los ingresos que ya tienen algún egreso asignado (lo relevante para revisar) de los que
+  // todavía están libres, para no mezclar tarjetas llenas de contenido con tarjetas vacías.
+  const asignacionesConGastos = resumen.asignaciones
+    .filter((a) => a.egresosAsignados.length > 0)
+    .sort((a, b) => b.totalAsignado - a.totalAsignado);
+  const asignacionesSinGastos = resumen.asignaciones
+    .filter((a) => a.egresosAsignados.length === 0)
+    .sort((a, b) => b.ingreso.monto - a.ingreso.monto);
+
+  const sinAsignarOrdenado = ordenarPorFecha(resumen.sinAsignar, (e) => e.fecha);
 
   if ((selectedMonth?.ingresos.length ?? 0) === 0 && (selectedMonth?.egresos.length ?? 0) === 0) {
     return (
@@ -150,96 +178,18 @@ export function PlanificadorPage() {
         </p>
       )}
 
-      <div className="grid md:grid-cols-2 gap-4">
-        {resumen.asignaciones.map(({ ingreso, egresosAsignados, totalAsignado, disponible }) => {
-          const pct = ingreso.monto > 0 ? Math.min((totalAsignado / ingreso.monto) * 100, 100) : 0;
-          const sobreasignado = disponible < 0;
-          return (
-            <div key={ingreso.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-semibold text-slate-800">{ingreso.detalle}</div>
-                  <div className="text-xs text-slate-400">
-                    {formatMonto(ingreso.monto)} ·{' '}
-                    <span className={ingreso.estado === 'COBRADO' ? 'text-emerald-600' : 'text-amber-600'}>
-                      {ingreso.estado}
-                    </span>
-                  </div>
-                </div>
-                <div className={`text-right text-sm font-semibold ${sobreasignado ? 'text-rose-600' : 'text-emerald-600'}`}>
-                  {sobreasignado ? `Sobrepasado ${formatMonto(Math.abs(disponible))}` : `Disponible ${formatMonto(disponible)}`}
-                </div>
-              </div>
-
-              <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden mt-3">
-                <div
-                  className={`h-full rounded-full transition-all ${sobreasignado ? 'bg-rose-500' : 'bg-brand-500'}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-
-              {egresosAsignados.length === 0 ? (
-                <p className="text-xs text-slate-400 mt-3">Sin egresos asignados todavía.</p>
-              ) : (
-                <ul className="divide-y divide-slate-100 mt-2">
-                  {egresosAsignados.map((egreso) => (
-                    <FilaEgreso
-                      key={egreso.id}
-                      egreso={egreso}
-                      ingresos={ingresosParaSelector}
-                      tarjetas={tarjetasParaSelector}
-                      onChange={(valor) => asignarFuentePago(egreso.id, valor)}
-                    />
-                  ))}
-                </ul>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-purple-200 p-4">
-        <h3 className="text-sm font-semibold text-slate-700 mb-1">💳 A pagar con tarjeta de crédito</h3>
-        <p className="text-xs text-slate-400 mb-2">
-          Egresos que planeas cargar a la tarjeta. Se sumarán al monto del próximo estado de cuenta, no a ningún
-          ingreso de este mes.
-        </p>
-        {resumen.aCargarTarjeta.length === 0 ? (
-          <p className="text-sm text-slate-400 py-2">No hay egresos marcados para pagar con tarjeta.</p>
-        ) : (
-          <div className="space-y-3">
-            {tarjetasParaSelector
-              .filter((t) => gruposPorTarjeta.has(t.id))
-              .map((t) => (
-                <div key={t.id}>
-                  <div className="text-xs font-semibold text-slate-500 mb-1">💳 {t.nombre}</div>
-                  <ul className="divide-y divide-slate-100">
-                    {gruposPorTarjeta.get(t.id)!.map((egreso) => (
-                      <FilaEgreso
-                        key={egreso.id}
-                        egreso={egreso}
-                        ingresos={ingresosParaSelector}
-                        tarjetas={tarjetasParaSelector}
-                        onChange={(valor) => asignarFuentePago(egreso.id, valor)}
-                      />
-                    ))}
-                  </ul>
-                </div>
-              ))}
-          </div>
-        )}
-      </div>
-
+      {/* Lo que necesita una decisión va primero: egresos sin asignar, ordenados por lo más urgente (fecha de vencimiento). */}
       <div className="bg-white rounded-xl shadow-sm border border-amber-200 p-4">
-        <h3 className="text-sm font-semibold text-slate-700 mb-1">Sin asignar</h3>
-        <p className="text-xs text-slate-400 mb-2">
-          Egresos que todavía no tienen un ingreso asignado ni están marcados para pagar con tarjeta.
+        <EncabezadoSeccion icono="⚠️" titulo="Sin asignar" contador={sinAsignarOrdenado.length} />
+        <p className="text-xs text-slate-400 mt-1 mb-2">
+          Egresos que todavía no tienen un ingreso asignado ni están marcados para pagar con tarjeta, del más urgente
+          al menos urgente.
         </p>
-        {resumen.sinAsignar.length === 0 ? (
+        {sinAsignarOrdenado.length === 0 ? (
           <p className="text-sm text-emerald-600 py-2">Todos los egresos ya están asignados.</p>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {resumen.sinAsignar.map((egreso) => (
+            {sinAsignarOrdenado.map((egreso) => (
               <FilaEgreso
                 key={egreso.id}
                 egreso={egreso}
@@ -251,6 +201,130 @@ export function PlanificadorPage() {
           </ul>
         )}
       </div>
+
+      {/* Ya decidido, pero vale la pena revisarlo: lo que planeas cargar a cada tarjeta. */}
+      {tarjetasParaSelector.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-purple-200 p-4">
+          <EncabezadoSeccion icono="💳" titulo="A pagar con tarjeta de crédito" contador={resumen.aCargarTarjeta.length} />
+          <p className="text-xs text-slate-400 mt-1 mb-2">
+            Egresos que planeas cargar a la tarjeta. Se sumarán al monto del próximo estado de cuenta, no a ningún
+            ingreso de este mes.
+          </p>
+          {resumen.aCargarTarjeta.length === 0 ? (
+            <p className="text-sm text-slate-400 py-2">No hay egresos marcados para pagar con tarjeta.</p>
+          ) : (
+            <div className="space-y-3">
+              {tarjetasParaSelector
+                .filter((t) => gruposPorTarjeta.has(t.id))
+                .map((t) => (
+                  <div key={t.id}>
+                    <div className="text-xs font-semibold text-slate-500 mb-1">💳 {t.nombre}</div>
+                    <ul className="divide-y divide-slate-100">
+                      {ordenarPorFecha(gruposPorTarjeta.get(t.id)!, (e) => e.fecha).map((egreso) => (
+                        <FilaEgreso
+                          key={egreso.id}
+                          egreso={egreso}
+                          ingresos={ingresosParaSelector}
+                          tarjetas={tarjetasParaSelector}
+                          onChange={(valor) => asignarFuentePago(egreso.id, valor)}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Ya decidido y en orden: revisión detallada por ingreso, el más comprometido primero. */}
+      {asignacionesConGastos.length > 0 && (
+        <div>
+          <EncabezadoSeccion icono="✅" titulo="Ingresos con egresos asignados" contador={asignacionesConGastos.length} />
+          <div className="grid md:grid-cols-2 gap-4 mt-2">
+            {asignacionesConGastos.map(({ ingreso, egresosAsignados, totalAsignado, disponible }) => {
+              const pct = ingreso.monto > 0 ? Math.min((totalAsignado / ingreso.monto) * 100, 100) : 0;
+              const sobreasignado = disponible < 0;
+              return (
+                <div key={ingreso.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-semibold text-slate-800">{ingreso.detalle}</div>
+                      <div className="text-xs text-slate-400">
+                        {formatMonto(ingreso.monto)} ·{' '}
+                        <span className={ingreso.estado === 'COBRADO' ? 'text-emerald-600' : 'text-amber-600'}>
+                          {ingreso.estado}
+                        </span>
+                      </div>
+                    </div>
+                    <div className={`text-right text-sm font-semibold ${sobreasignado ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {sobreasignado ? `Sobrepasado ${formatMonto(Math.abs(disponible))}` : `Disponible ${formatMonto(disponible)}`}
+                    </div>
+                  </div>
+
+                  <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden mt-3">
+                    <div
+                      className={`h-full rounded-full transition-all ${sobreasignado ? 'bg-rose-500' : 'bg-brand-500'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+
+                  <ul className="divide-y divide-slate-100 mt-2">
+                    {ordenarPorFecha(egresosAsignados, (e) => e.fecha).map((egreso) => (
+                      <FilaEgreso
+                        key={egreso.id}
+                        egreso={egreso}
+                        ingresos={ingresosParaSelector}
+                        tarjetas={tarjetasParaSelector}
+                        onChange={(valor) => asignarFuentePago(egreso.id, valor)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Pura referencia, sin nada que decidir todavía: colapsado por defecto para no tapar lo importante. */}
+      {asignacionesSinGastos.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
+          <button
+            type="button"
+            onClick={() => setMostrarSinGastos((v) => !v)}
+            className="w-full flex items-center justify-between gap-2 text-left"
+          >
+            <EncabezadoSeccion icono="⚪" titulo="Ingresos sin egresos asignados" contador={asignacionesSinGastos.length} />
+            <span className="text-xs font-medium text-brand-600 whitespace-nowrap">
+              {mostrarSinGastos ? 'Ocultar ▲' : 'Mostrar ▾'}
+            </span>
+          </button>
+          {mostrarSinGastos && (
+            <>
+              <p className="text-xs text-slate-400 mt-2 mb-2">
+                Tienen su monto completo disponible. Para usarlos, elige este ingreso desde el selector de cualquier
+                egreso de arriba.
+              </p>
+              <ul className="divide-y divide-slate-100">
+                {asignacionesSinGastos.map(({ ingreso, disponible }) => (
+                  <li key={ingreso.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <div className="min-w-0 truncate">
+                      <span className="text-slate-700">{ingreso.detalle}</span>{' '}
+                      <span className={`text-xs ${ingreso.estado === 'COBRADO' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {ingreso.estado}
+                      </span>
+                    </div>
+                    <span className="font-semibold text-emerald-600 whitespace-nowrap">
+                      Disponible {formatMonto(disponible)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

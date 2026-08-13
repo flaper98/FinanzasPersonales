@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import type { Egreso } from '../../types';
 import { formatIsoDate, ordenarPorFecha } from '../../lib/monthUtils';
-import { cuotasPorPagar } from '../../lib/calculations';
+import { cuotasPorPagar, tarjetaIdDesdeValor, valorParaTarjeta } from '../../lib/calculations';
 import { EgresoForm } from './EgresoForm';
 import { Pagination } from '../common/Pagination';
 
 const POR_PAGINA = 15;
+const SIN_ASIGNAR = 'SIN_ASIGNAR';
 
 function formatMonto(n: number): string {
   return n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 });
@@ -19,27 +20,38 @@ export function EgresosPage() {
   const [editando, setEditando] = useState<Egreso | null>(null);
   const [creando, setCreando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
+  const [fuentePago, setFuentePago] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
 
+  const ingresosDelMes = selectedMonth?.ingresos ?? [];
   const egresos = selectedMonth?.egresos ?? [];
   const visibles = useMemo(() => {
     let filtrados = filtro === 'TODOS' ? egresos : egresos.filter((e) => e.tipo === filtro);
+    if (fuentePago === SIN_ASIGNAR) {
+      filtrados = filtrados.filter((e) => !e.tarjetaId && !e.ingresoId);
+    } else if (fuentePago) {
+      const tarjetaId = tarjetaIdDesdeValor(fuentePago);
+      filtrados = tarjetaId
+        ? filtrados.filter((e) => e.tarjetaId === tarjetaId)
+        : filtrados.filter((e) => e.ingresoId === fuentePago);
+    }
     const termino = busqueda.trim().toLowerCase();
     if (termino) filtrados = filtrados.filter((e) => e.detalle.toLowerCase().includes(termino));
     return ordenarPorFecha(filtrados, (e) => e.fecha);
-  }, [egresos, filtro, busqueda]);
+  }, [egresos, filtro, fuentePago, busqueda]);
   const total = visibles.reduce((s, e) => s + e.monto, 0);
-  const detalleIngresoPorId = new Map((selectedMonth?.ingresos ?? []).map((i) => [i.id, i.detalle]));
+  const detalleIngresoPorId = new Map(ingresosDelMes.map((i) => [i.id, i.detalle]));
   const detallePrestamoPorId = new Map(state.prestamos.map((p) => [p.id, p.entidad]));
   const detalleTarjetaPorId = new Map(state.tarjetasCredito.map((t) => [t.id, t.nombre]));
   const totalPaginas = Math.max(Math.ceil(visibles.length / POR_PAGINA), 1);
   const paginaSegura = Math.min(pagina, totalPaginas);
   const paginados = visibles.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA);
+  const hayFiltrosActivos = filtro !== 'TODOS' || fuentePago !== '' || busqueda !== '';
 
   useEffect(() => {
     setPagina(1);
-  }, [busqueda, filtro, selectedMonth?.key]);
+  }, [busqueda, filtro, fuentePago, selectedMonth?.key]);
 
   return (
     <div className="space-y-4">
@@ -66,6 +78,24 @@ export function EgresosPage() {
               </button>
             ))}
           </div>
+          <select
+            value={fuentePago}
+            onChange={(e) => setFuentePago(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            <option value="">Cómo se paga: todos</option>
+            <option value={SIN_ASIGNAR}>Sin asignar</option>
+            {state.tarjetasCredito.map((t) => (
+              <option key={t.id} value={valorParaTarjeta(t.id)}>
+                💳 {t.nombre}
+              </option>
+            ))}
+            {ingresosDelMes.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.detalle}
+              </option>
+            ))}
+          </select>
           <button
             onClick={() => setCreando(true)}
             className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white hover:bg-brand-700 whitespace-nowrap"
@@ -77,7 +107,7 @@ export function EgresosPage() {
 
       {visibles.length === 0 ? (
         <p className="text-sm text-slate-500 py-8 text-center">
-          {busqueda || filtro !== 'TODOS'
+          {hayFiltrosActivos
             ? 'Ningún egreso coincide con la búsqueda/filtro.'
             : 'No hay egresos registrados en este filtro.'}
         </p>
