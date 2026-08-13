@@ -106,6 +106,8 @@ export interface DatosEmpresa {
   banco: string;
   numeroCuenta: string;
   numeroCci: string;
+  /** Imagen de tu firma (data URL base64), o '' si no configuraste una. Se muestra arriba de tu nombre en la proforma. */
+  firma: string;
 }
 
 export interface ItemProforma {

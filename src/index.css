@@ -18,9 +18,12 @@ body {
  * porque un hijo visible dentro de un padre invisible igual se renderiza.
  */
 @media print {
+  /* Margen de página en 0: sin esto, Chrome imprime ahí su encabezado/pie por
+     defecto (URL, fecha, título de la pestaña). El espacio en blanco que daba
+     ese margen se repone como padding en .proforma-print, más abajo. */
   @page {
     size: A4;
-    margin: 12mm;
+    margin: 0;
   }
   /* Sin esto, la mayoría de los navegadores imprimen colores de fondo como blanco por
      defecto (a menos que el usuario tilde "Gráficos de fondo" a mano en el diálogo de
@@ -40,5 +43,7 @@ body {
     position: absolute;
     inset: 0;
     width: 100%;
+    padding: 12mm;
+    box-sizing: border-box;
   }
 }

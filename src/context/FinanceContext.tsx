@@ -89,6 +89,7 @@ const DATOS_EMPRESA_VACIOS: DatosEmpresa = {
   banco: '',
   numeroCuenta: '',
   numeroCci: '',
+  firma: '',
 };
 
 /**
@@ -143,7 +144,9 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
     tarjetasCredito,
     prestamos: state.prestamos ?? [],
     proformas: state.proformas ?? [],
-    datosEmpresa: state.datosEmpresa ?? DATOS_EMPRESA_VACIOS,
+    // Merge (no solo `??`) para que datosEmpresa guardado antes de que existiera algún campo nuevo
+    // (ej. `firma`) lo complete con su valor por defecto, en vez de quedar `undefined`.
+    datosEmpresa: { ...DATOS_EMPRESA_VACIOS, ...state.datosEmpresa },
     presupuestosProyecto: state.presupuestosProyecto ?? [],
   };
 }

@@ -172,6 +172,11 @@ export function ProformaPreview({
               <p className="text-xs font-semibold uppercase tracking-wide">
                 Proforma válida por {proforma.validezDias} días hábiles
               </p>
+              {datosEmpresa.firma && (
+                <div className="inline-block bg-white rounded px-3 py-1.5 mt-3">
+                  <img src={datosEmpresa.firma} alt="Firma" className="h-12 object-contain" />
+                </div>
+              )}
               <p className="text-sm font-semibold mt-1">{datosEmpresa.nombre}</p>
               <p className="text-xs opacity-80">
                 {[
