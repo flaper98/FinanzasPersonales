@@ -1,119 +1,35 @@
-import { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
-import { resumenPlanificador, resumenTarjeta, TARJETA_CREDITO } from '../../lib/calculations';
+import { resumenPlanificador, resumenTarjeta, tarjetaIdDesdeValor, valorParaTarjeta } from '../../lib/calculations';
 import { formatIsoDate, monthLabel } from '../../lib/monthUtils';
-import type { Egreso } from '../../types';
+import type { Egreso, TarjetaCredito } from '../../types';
 
 function formatMonto(n: number): string {
   return n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 });
 }
 
-function TarjetaCreditoWidget({ montoPorCargar }: { montoPorCargar: number }) {
-  const { state, actualizarTarjetaCredito } = useFinance();
-  const [editando, setEditando] = useState(false);
-  const [limite, setLimite] = useState('');
-  const [saldoActual, setSaldoActual] = useState('');
-  const resumen = resumenTarjeta(state.tarjetaCredito, montoPorCargar);
-  const sobregirado = resumen.disponible < 0;
-
-  function empezarEdicion() {
-    setLimite(state.tarjetaCredito.limite.toString());
-    setSaldoActual(state.tarjetaCredito.saldoActual.toString());
-    setEditando(true);
-  }
-
-  function guardar(e: React.FormEvent) {
-    e.preventDefault();
-    actualizarTarjetaCredito('limite', parseFloat(limite) || 0);
-    actualizarTarjetaCredito('saldoActual', parseFloat(saldoActual) || 0);
-    setEditando(false);
-  }
+/** Vista resumida y de solo lectura de cada tarjeta (la edición vive en la pestaña Tarjetas). */
+function ResumenTarjetasCompacto() {
+  const { state, selectedMonth } = useFinance();
+  if (state.tarjetasCredito.length === 0) return null;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-      <div className="flex items-start justify-between gap-2 flex-wrap">
-        <h3 className="text-sm font-semibold text-slate-700">💳 Tarjeta de crédito</h3>
-        {!editando && (
-          <button onClick={empezarEdicion} className="text-xs text-brand-600 hover:underline">
-            Actualizar con mi estado de cuenta
-          </button>
-        )}
-      </div>
-
-      {editando ? (
-        <form onSubmit={guardar} className="grid grid-cols-2 gap-3 mt-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Línea de crédito</label>
-            <input
-              autoFocus
-              type="number"
-              step="0.01"
-              value={limite}
-              onChange={(e) => setLimite(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Deuda actual (último estado de cuenta)</label>
-            <input
-              type="number"
-              step="0.01"
-              value={saldoActual}
-              onChange={(e) => setSaldoActual(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-          </div>
-          <div className="col-span-2 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setEditando(false)}
-              className="px-3 py-1 rounded-lg text-slate-500 text-xs hover:bg-slate-100"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="px-3 py-1 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-700"
-            >
-              Guardar
-            </button>
-          </div>
-        </form>
-      ) : (
-        <>
-          <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden mt-3">
-            <div
-              className={`h-full rounded-full transition-all ${sobregirado ? 'bg-rose-500' : 'bg-purple-500'}`}
-              style={{ width: `${resumen.pctUsado}%` }}
-            />
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 text-sm">
-            <div>
-              <div className="text-xs text-slate-400">Deuda actual</div>
-              <div className="font-semibold text-slate-700">{formatMonto(resumen.saldoActual)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-400">Por cargar este mes</div>
-              <div className="font-semibold text-slate-700">{formatMonto(resumen.montoPorCargar)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-400">Deuda proyectada</div>
-              <div className="font-semibold text-slate-700">{formatMonto(resumen.deudaProyectada)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-400">Disponible</div>
-              <div className={`font-semibold ${sobregirado ? 'text-rose-600' : 'text-emerald-600'}`}>
-                {formatMonto(resumen.disponible)}
-              </div>
-            </div>
-          </div>
-          {resumen.limite === 0 && (
-            <p className="text-xs text-slate-400 mt-2">
-              Todavía no configuraste tu línea de crédito. Usa "Actualizar con mi estado de cuenta" para ingresarla.
-            </p>
-          )}
-        </>
-      )}
+      <h3 className="text-sm font-semibold text-slate-700 mb-3">💳 Tarjetas de crédito</h3>
+      <ul className="divide-y divide-slate-100">
+        {state.tarjetasCredito.map((t) => {
+          const resumen = resumenTarjeta(t, selectedMonth);
+          const sobregirado = resumen.disponible < 0;
+          return (
+            <li key={t.id} className="py-2 flex items-center justify-between gap-3 text-sm">
+              <span className="text-slate-700 truncate">{t.nombre}</span>
+              <span className={`font-semibold whitespace-nowrap ${sobregirado ? 'text-rose-600' : 'text-emerald-600'}`}>
+                Disponible {formatMonto(resumen.disponible)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-xs text-slate-400 mt-2">Edita límites, deuda y fechas desde la pestaña Tarjetas.</p>
     </div>
   );
 }
@@ -121,13 +37,15 @@ function TarjetaCreditoWidget({ montoPorCargar }: { montoPorCargar: number }) {
 function SelectorFuente({
   egreso,
   ingresos,
+  tarjetas,
   onChange,
 }: {
   egreso: Egreso;
   ingresos: Array<{ id: string; detalle: string }>;
+  tarjetas: TarjetaCredito[];
   onChange: (valor: string | null) => void;
 }) {
-  const valor = egreso.pagoConTarjeta ? TARJETA_CREDITO : (egreso.ingresoId ?? '');
+  const valor = egreso.tarjetaId ? valorParaTarjeta(egreso.tarjetaId) : (egreso.ingresoId ?? '');
   return (
     <select
       value={valor}
@@ -135,7 +53,11 @@ function SelectorFuente({
       className="rounded-lg border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
     >
       <option value="">Sin asignar</option>
-      <option value={TARJETA_CREDITO}>💳 Tarjeta de crédito</option>
+      {tarjetas.map((t) => (
+        <option key={t.id} value={valorParaTarjeta(t.id)}>
+          💳 {t.nombre}
+        </option>
+      ))}
       {ingresos.map((i) => (
         <option key={i.id} value={i.id}>
           {i.detalle}
@@ -148,10 +70,12 @@ function SelectorFuente({
 function FilaEgreso({
   egreso,
   ingresos,
+  tarjetas,
   onChange,
 }: {
   egreso: Egreso;
   ingresos: Array<{ id: string; detalle: string }>;
+  tarjetas: TarjetaCredito[];
   onChange: (valor: string | null) => void;
 }) {
   return (
@@ -162,15 +86,22 @@ function FilaEgreso({
           {formatMonto(egreso.monto)} · Vence {formatIsoDate(egreso.fecha)}
         </div>
       </div>
-      <SelectorFuente egreso={egreso} ingresos={ingresos} onChange={onChange} />
+      <SelectorFuente egreso={egreso} ingresos={ingresos} tarjetas={tarjetas} onChange={onChange} />
     </li>
   );
 }
 
 export function PlanificadorPage() {
-  const { selectedMonth, selectedMonthKey, asignarFuentePago } = useFinance();
+  const { state, selectedMonth, selectedMonthKey, asignarFuentePago } = useFinance();
   const resumen = resumenPlanificador(selectedMonth);
   const ingresosParaSelector = (selectedMonth?.ingresos ?? []).map((i) => ({ id: i.id, detalle: i.detalle }));
+  const tarjetasParaSelector = state.tarjetasCredito;
+
+  const gruposPorTarjeta = new Map<string, Egreso[]>();
+  for (const e of resumen.aCargarTarjeta) {
+    const key = e.tarjetaId ?? '';
+    gruposPorTarjeta.set(key, [...(gruposPorTarjeta.get(key) ?? []), e]);
+  }
 
   const totalIngresos = resumen.asignaciones.reduce((s, a) => s + a.ingreso.monto, 0);
   const totalAsignado = resumen.asignaciones.reduce((s, a) => s + a.totalAsignado, 0);
@@ -211,7 +142,7 @@ export function PlanificadorPage() {
         </div>
       </div>
 
-      <TarjetaCreditoWidget montoPorCargar={resumen.totalTarjeta} />
+      <ResumenTarjetasCompacto />
 
       {resumen.asignaciones.length === 0 && (
         <p className="text-sm text-slate-500 py-4 text-center">
@@ -256,6 +187,7 @@ export function PlanificadorPage() {
                       key={egreso.id}
                       egreso={egreso}
                       ingresos={ingresosParaSelector}
+                      tarjetas={tarjetasParaSelector}
                       onChange={(valor) => asignarFuentePago(egreso.id, valor)}
                     />
                   ))}
@@ -275,16 +207,26 @@ export function PlanificadorPage() {
         {resumen.aCargarTarjeta.length === 0 ? (
           <p className="text-sm text-slate-400 py-2">No hay egresos marcados para pagar con tarjeta.</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
-            {resumen.aCargarTarjeta.map((egreso) => (
-              <FilaEgreso
-                key={egreso.id}
-                egreso={egreso}
-                ingresos={ingresosParaSelector}
-                onChange={(valor) => asignarFuentePago(egreso.id, valor)}
-              />
-            ))}
-          </ul>
+          <div className="space-y-3">
+            {tarjetasParaSelector
+              .filter((t) => gruposPorTarjeta.has(t.id))
+              .map((t) => (
+                <div key={t.id}>
+                  <div className="text-xs font-semibold text-slate-500 mb-1">💳 {t.nombre}</div>
+                  <ul className="divide-y divide-slate-100">
+                    {gruposPorTarjeta.get(t.id)!.map((egreso) => (
+                      <FilaEgreso
+                        key={egreso.id}
+                        egreso={egreso}
+                        ingresos={ingresosParaSelector}
+                        tarjetas={tarjetasParaSelector}
+                        onChange={(valor) => asignarFuentePago(egreso.id, valor)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              ))}
+          </div>
         )}
       </div>
 
@@ -302,6 +244,7 @@ export function PlanificadorPage() {
                 key={egreso.id}
                 egreso={egreso}
                 ingresos={ingresosParaSelector}
+                tarjetas={tarjetasParaSelector}
                 onChange={(valor) => asignarFuentePago(egreso.id, valor)}
               />
             ))}

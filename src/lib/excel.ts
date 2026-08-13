@@ -8,6 +8,7 @@ import type {
   MonthData,
   NewEgresoInput,
   NewIngresoInput,
+  TarjetaCredito,
   TipoEgreso,
 } from '../types';
 
@@ -29,7 +30,7 @@ export function exportBackupJson(state: FinanceState): void {
   downloadBlob(`finanzas-backup-${format(new Date(), 'yyyy-MM-dd-HHmm')}.json`, blob);
 }
 
-export function exportMonthToExcel(month: MonthData): void {
+export function exportMonthToExcel(month: MonthData, tarjetas: TarjetaCredito[] = []): void {
   const wb = XLSX.utils.book_new();
 
   const ingresoRows = month.ingresos.map((i) => ({
@@ -40,6 +41,7 @@ export function exportMonthToExcel(month: MonthData): void {
     Estado: i.estado,
   }));
   const ingresoPorId = new Map(month.ingresos.map((i) => [i.id, i.detalle]));
+  const tarjetaPorId = new Map(tarjetas.map((t) => [t.id, t.nombre]));
   const egresoRows = month.egresos.map((e) => ({
     Detalle: e.detalle,
     Monto: e.monto,
@@ -52,7 +54,11 @@ export function exportMonthToExcel(month: MonthData): void {
         ? 'siempre'
         : Math.max((e.cuotasTotales as number) - (e.cuotaActual as number), 0),
     Accion: e.accion,
-    'Pagar Con': e.pagoConTarjeta ? 'Tarjeta de crédito' : e.ingresoId ? (ingresoPorId.get(e.ingresoId) ?? '') : '',
+    'Pagar Con': e.tarjetaId
+      ? `Tarjeta: ${tarjetaPorId.get(e.tarjetaId) ?? 'Tarjeta de crédito'}`
+      : e.ingresoId
+        ? (ingresoPorId.get(e.ingresoId) ?? '')
+        : '',
   }));
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ingresoRows), 'Ingreso');
@@ -160,9 +166,14 @@ export interface ImportedRows {
 
 /**
  * Importa un Excel/CSV. Si el archivo trae hojas "Ingreso" y/o "Egreso" las
- * usa; si es un CSV de una sola tabla, se interpreta según `kind`.
+ * usa; si es un CSV de una sola tabla, se interpreta según `kind`. `tarjetas`
+ * se usa para reconocer la columna "Pagar Con" cuando nombra una tarjeta.
  */
-export async function importExcelOrCsv(file: File, kind: 'ingreso' | 'egreso' | 'auto'): Promise<ImportedRows> {
+export async function importExcelOrCsv(
+  file: File,
+  kind: 'ingreso' | 'egreso' | 'auto',
+  tarjetas: TarjetaCredito[] = [],
+): Promise<ImportedRows> {
   const buffer = await file.arrayBuffer();
   const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
 
@@ -179,7 +190,7 @@ export async function importExcelOrCsv(file: File, kind: 'ingreso' | 'egreso' | 
   }
   if (egresoSheet) {
     for (const row of XLSX.utils.sheet_to_json<Record<string, unknown>>(egresoSheet, { defval: '' })) {
-      egresos.push(rowToEgreso(row));
+      egresos.push(rowToEgreso(row, tarjetas));
     }
   }
 
@@ -188,7 +199,7 @@ export async function importExcelOrCsv(file: File, kind: 'ingreso' | 'egreso' | 
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '' });
     const effectiveKind = kind === 'auto' ? (getField(rows[0] ?? {}, 'Tipo de Egreso', 'Accion') !== undefined ? 'egreso' : 'ingreso') : kind;
     for (const row of rows) {
-      if (effectiveKind === 'egreso') egresos.push(rowToEgreso(row));
+      if (effectiveKind === 'egreso') egresos.push(rowToEgreso(row, tarjetas));
       else ingresos.push(rowToIngreso(row));
     }
   }
@@ -206,7 +217,21 @@ function rowToIngreso(row: Record<string, unknown>): NewIngresoInput {
   };
 }
 
-function rowToEgreso(row: Record<string, unknown>): NewEgresoInput {
+/**
+ * Busca a qué tarjeta se refiere el texto de "Pagar Con": por nombre exacto
+ * si hay varias, o a la única tarjeta registrada si el texto solo dice
+ * "tarjeta" de forma genérica (compatibilidad con exports viejos).
+ */
+function encontrarTarjeta(pagarCon: string, tarjetas: TarjetaCredito[]): TarjetaCredito | undefined {
+  const texto = normalizeKey(pagarCon);
+  if (!texto) return undefined;
+  const porNombre = tarjetas.find((t) => texto.includes(normalizeKey(t.nombre)));
+  if (porNombre) return porNombre;
+  if (tarjetas.length === 1 && /tarjeta/i.test(pagarCon)) return tarjetas[0];
+  return undefined;
+}
+
+function rowToEgreso(row: Record<string, unknown>, tarjetas: TarjetaCredito[] = []): NewEgresoInput {
   const cuotasTotales = parseCuotas(getField(row, 'Cuotas Totales'));
   const cuotaActual = parseCuotas(getField(row, 'Cuota Actual'));
   const pagarCon = String(getField(row, 'Pagar Con') ?? '');
@@ -219,7 +244,7 @@ function rowToEgreso(row: Record<string, unknown>): NewEgresoInput {
     cuotaActual,
     accion: parseAccion(getField(row, 'Accion', 'Acción')),
     ingresoId: null,
-    pagoConTarjeta: /tarjeta/i.test(pagarCon),
+    tarjetaId: encontrarTarjeta(pagarCon, tarjetas)?.id ?? null,
     prestamoId: null,
   };
 }

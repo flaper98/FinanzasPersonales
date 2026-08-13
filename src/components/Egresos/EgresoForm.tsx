@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Egreso, NewEgresoInput, TipoEgreso } from '../../types';
 import { Modal } from '../common/Modal';
 import { useFinance } from '../../context/FinanceContext';
-import { TARJETA_CREDITO } from '../../lib/calculations';
+import { tarjetaIdDesdeValor, valorParaTarjeta } from '../../lib/calculations';
 import { todayIso } from '../../lib/monthUtils';
 
 export function EgresoForm({
@@ -29,16 +29,17 @@ export function EgresoForm({
   );
   const [accion, setAccion] = useState(initial?.accion ?? 'NO PAGADO');
   const [metodoPago, setMetodoPago] = useState<string>(
-    initial?.pagoConTarjeta ? TARJETA_CREDITO : (initial?.ingresoId ?? ''),
+    initial?.tarjetaId ? valorParaTarjeta(initial.tarjetaId) : (initial?.ingresoId ?? ''),
   );
   const [prestamoId, setPrestamoId] = useState(initial?.prestamoId ?? '');
   const { selectedMonth, state } = useFinance();
   const ingresosDisponibles = selectedMonth?.ingresos ?? [];
   const prestamosDisponibles = state.prestamos;
+  const tarjetasDisponibles = state.tarjetasCredito;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const pagoConTarjeta = metodoPago === TARJETA_CREDITO;
+    const tarjetaId = tarjetaIdDesdeValor(metodoPago);
     onSubmit({
       detalle: detalle.trim(),
       monto: parseFloat(monto) || 0,
@@ -47,8 +48,8 @@ export function EgresoForm({
       cuotasTotales: siempre ? 'siempre' : parseInt(cuotasTotales, 10) || 1,
       cuotaActual: siempre ? 'siempre' : parseInt(cuotaActual, 10) || 0,
       accion,
-      ingresoId: pagoConTarjeta ? null : metodoPago || null,
-      pagoConTarjeta,
+      ingresoId: tarjetaId ? null : metodoPago || null,
+      tarjetaId,
       prestamoId: prestamoId || null,
     });
     onClose();
@@ -175,7 +176,11 @@ export function EgresoForm({
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Sin asignar</option>
-            <option value={TARJETA_CREDITO}>💳 Tarjeta de crédito</option>
+            {tarjetasDisponibles.map((t) => (
+              <option key={t.id} value={valorParaTarjeta(t.id)}>
+                💳 {t.nombre}
+              </option>
+            ))}
             {ingresosDisponibles.map((i) => (
               <option key={i.id} value={i.id}>
                 {i.detalle} (S/ {i.monto.toLocaleString('es-PE')})

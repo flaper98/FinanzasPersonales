@@ -7,6 +7,7 @@ const TABS: Array<{ id: Page; label: string }> = [
   { id: 'egresos', label: 'Egresos' },
   { id: 'planificador', label: 'Planificador' },
   { id: 'prestamos', label: 'Préstamos' },
+  { id: 'tarjetas', label: 'Tarjetas' },
   { id: 'graficos', label: 'Gráficos' },
   { id: 'backup', label: 'Backup' },
 ];

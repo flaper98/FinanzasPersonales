@@ -28,8 +28,8 @@ export interface Egreso {
   finalizado: boolean;
   /** Id del Ingreso (del mismo mes) con el que se planea pagar este egreso, o null si no está asignado. */
   ingresoId: string | null;
-  /** Si se va a pagar cargándolo a la tarjeta de crédito (en vez de con un ingreso directo). */
-  pagoConTarjeta: boolean;
+  /** Id de la TarjetaCredito a la que se carga este egreso (en vez de pagarlo con un ingreso directo), o null. */
+  tarjetaId: string | null;
   /** Id del Préstamo (en Préstamos) del que este egreso es la cuota mensual, o null si no aplica. */
   prestamoId: string | null;
 }
@@ -44,11 +44,20 @@ export interface MonthData {
 }
 
 export interface TarjetaCredito {
+  id: string;
+  /** Ej. "BCP Visa Signature", para distinguirla si hay varias. */
+  nombre: string;
   /** Línea de crédito total que da el banco. */
   limite: number;
   /** Deuda actual tal como aparece en el último estado de cuenta (se actualiza a mano cuando llega uno nuevo). */
   saldoActual: number;
+  /** Día del mes (1-31) en que cierra el estado de cuenta, o null si no se definió. */
+  diaCorte: number | null;
+  /** Día del mes (1-31) en que vence el pago, o null si no se definió. */
+  diaPago: number | null;
 }
+
+export type NewTarjetaCreditoInput = Omit<TarjetaCredito, 'id'>;
 
 /** Préstamo a cuotas fijas (ej. crédito de un banco/financiera), tal como aparece en su cronograma de pagos. */
 export interface Prestamo {
@@ -73,7 +82,7 @@ export type NewPrestamoInput = Omit<Prestamo, 'id'>;
 
 export interface FinanceState {
   months: Record<string, MonthData>;
-  tarjetaCredito: TarjetaCredito;
+  tarjetasCredito: TarjetaCredito[];
   prestamos: Prestamo[];
 }
 

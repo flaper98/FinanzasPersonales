@@ -8,8 +8,8 @@ import type {
   NewEgresoInput,
   NewIngresoInput,
   NewPrestamoInput,
+  NewTarjetaCreditoInput,
   Prestamo,
-  TarjetaCredito,
 } from '../types';
 import { loadState } from '../lib/storage';
 import { apiGet, apiPut } from '../lib/api';
@@ -22,7 +22,7 @@ import {
   arrastrarIngresosFijos,
   dashboardTotals,
   aplicarPagoAPrestamo,
-  TARJETA_CREDITO,
+  tarjetaIdDesdeValor,
 } from '../lib/calculations';
 import { currentMonthKey, nextMonthKey, sortedMonthKeys } from '../lib/monthUtils';
 import { normalizarDetalle } from '../lib/text';
@@ -49,7 +49,9 @@ interface FinanceContextValue {
   alternarPagado: (id: string) => void;
   alternarCobrado: (id: string) => void;
   actualizarSaldoInicial: (monto: number) => void;
-  actualizarTarjetaCredito: (campo: keyof TarjetaCredito, valor: number) => void;
+  agregarTarjeta: (input: NewTarjetaCreditoInput) => void;
+  actualizarTarjeta: (id: string, input: NewTarjetaCreditoInput) => void;
+  eliminarTarjeta: (id: string) => void;
   agregarPrestamo: (input: NewPrestamoInput) => void;
   actualizarPrestamo: (id: string, input: NewPrestamoInput) => void;
   eliminarPrestamo: (id: string) => void;
@@ -64,26 +66,53 @@ const FinanceContext = createContext<FinanceContextValue | null>(null);
 
 /**
  * Normaliza el detalle de todo lo ya guardado (para que datos antiguos se
- * vean consistentes) y rellena `saldoInicial` en meses guardados antes de
- * que existiera ese campo.
+ * vean consistentes), rellena `saldoInicial` en meses guardados antes de que
+ * existiera ese campo, y migra el esquema viejo de tarjeta de crédito: antes
+ * había una sola `tarjetaCredito: { limite, saldoActual }` y los egresos
+ * tenían `pagoConTarjeta: boolean`; ahora son varias `tarjetasCredito[]` y
+ * cada egreso apunta a una con `tarjetaId`. Si detecta datos en el formato
+ * viejo, crea una tarjeta "Mi tarjeta" con esos valores y reasigna los
+ * egresos que tenían `pagoConTarjeta: true`.
  */
 function normalizarDetallesEstado(state: FinanceState): FinanceState {
+  const legado = state as FinanceState & { tarjetaCredito?: { limite: number; saldoActual: number } };
+
+  let tarjetasCredito = legado.tarjetasCredito ?? [];
+  let tarjetaLegadaId: string | null = null;
+  if (tarjetasCredito.length === 0 && legado.tarjetaCredito && (legado.tarjetaCredito.limite > 0 || legado.tarjetaCredito.saldoActual > 0)) {
+    tarjetaLegadaId = newId();
+    tarjetasCredito = [
+      {
+        id: tarjetaLegadaId,
+        nombre: 'Mi tarjeta',
+        limite: legado.tarjetaCredito.limite,
+        saldoActual: legado.tarjetaCredito.saldoActual,
+        diaCorte: null,
+        diaPago: null,
+      },
+    ];
+  }
+
   const months: FinanceState['months'] = {};
   for (const [key, month] of Object.entries(state.months)) {
     months[key] = {
       ...month,
       saldoInicial: month.saldoInicial ?? 0,
       ingresos: month.ingresos.map((i) => ({ ...i, detalle: normalizarDetalle(i.detalle) })),
-      egresos: month.egresos.map((e) => ({
-        ...e,
-        detalle: normalizarDetalle(e.detalle),
-        prestamoId: e.prestamoId ?? null,
-      })),
+      egresos: month.egresos.map((e) => {
+        const legadoEgreso = e as Egreso & { pagoConTarjeta?: boolean };
+        return {
+          ...e,
+          detalle: normalizarDetalle(e.detalle),
+          prestamoId: e.prestamoId ?? null,
+          tarjetaId: e.tarjetaId ?? (legadoEgreso.pagoConTarjeta && tarjetaLegadaId ? tarjetaLegadaId : null),
+        };
+      }),
     };
   }
   return {
     months,
-    tarjetaCredito: state.tarjetaCredito ?? { limite: 0, saldoActual: 0 },
+    tarjetasCredito,
     prestamos: state.prestamos ?? [],
   };
 }
@@ -115,7 +144,7 @@ function ensureMonth(state: FinanceState, key: string): FinanceState {
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<FinanceState>({
     months: {},
-    tarjetaCredito: { limite: 0, saldoActual: 0 },
+    tarjetasCredito: [],
     prestamos: [],
   });
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey());
@@ -334,8 +363,19 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     updateMonth(selectedMonthKey, (month) => ({ ...month, saldoInicial: monto }));
   }
 
-  function actualizarTarjetaCredito(campo: keyof TarjetaCredito, valor: number) {
-    setState((prev) => ({ ...prev, tarjetaCredito: { ...prev.tarjetaCredito, [campo]: valor } }));
+  function agregarTarjeta(input: NewTarjetaCreditoInput) {
+    setState((prev) => ({ ...prev, tarjetasCredito: [...prev.tarjetasCredito, { ...input, id: newId() }] }));
+  }
+
+  function actualizarTarjeta(id: string, input: NewTarjetaCreditoInput) {
+    setState((prev) => ({
+      ...prev,
+      tarjetasCredito: prev.tarjetasCredito.map((t) => (t.id === id ? { ...t, ...input } : t)),
+    }));
+  }
+
+  function eliminarTarjeta(id: string) {
+    setState((prev) => ({ ...prev, tarjetasCredito: prev.tarjetasCredito.filter((t) => t.id !== id) }));
   }
 
   function agregarPrestamo(input: NewPrestamoInput) {
@@ -353,13 +393,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => ({ ...prev, prestamos: prev.prestamos.filter((p) => p.id !== id) }));
   }
 
-  /** `valor` es el id de un Ingreso, `TARJETA_CREDITO` para marcarlo a pagar con tarjeta, o null para quitar la asignación. */
+  /** `valor` es el id de un Ingreso, `valorParaTarjeta(id)` para marcarlo a cargar a esa tarjeta, o null para quitar la asignación. */
   function asignarFuentePago(egresoId: string, valor: string | null) {
-    const pagoConTarjeta = valor === TARJETA_CREDITO;
+    const tarjetaId = valor ? tarjetaIdDesdeValor(valor) : null;
     updateMonth(selectedMonthKey, (month) => ({
       ...month,
       egresos: month.egresos.map((e) =>
-        e.id === egresoId ? { ...e, ingresoId: pagoConTarjeta ? null : valor, pagoConTarjeta } : e,
+        e.id === egresoId ? { ...e, ingresoId: tarjetaId ? null : valor, tarjetaId } : e,
       ),
     }));
   }
@@ -428,7 +468,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     alternarPagado,
     alternarCobrado,
     actualizarSaldoInicial,
-    actualizarTarjetaCredito,
+    agregarTarjeta,
+    actualizarTarjeta,
+    eliminarTarjeta,
     agregarPrestamo,
     actualizarPrestamo,
     eliminarPrestamo,

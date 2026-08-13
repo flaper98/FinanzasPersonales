@@ -67,7 +67,7 @@ export function BackupPage() {
     e.target.value = '';
     if (!file) return;
     try {
-      const { ingresos, egresos } = await importExcelOrCsv(file, 'auto');
+      const { ingresos, egresos } = await importExcelOrCsv(file, 'auto', state.tarjetasCredito);
       if (ingresos.length === 0 && egresos.length === 0) {
         setMensaje({ tipo: 'error', texto: 'No se encontraron filas para importar en el archivo.' });
         return;
@@ -193,7 +193,7 @@ export function BackupPage() {
           actual.
         </p>
         <button
-          onClick={() => selectedMonth && exportMonthToExcel(selectedMonth)}
+          onClick={() => selectedMonth && exportMonthToExcel(selectedMonth, state.tarjetasCredito)}
           disabled={!selectedMonth}
           className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40"
         >

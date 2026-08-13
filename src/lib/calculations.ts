@@ -1,10 +1,19 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import type { Cuotas, Egreso, Ingreso, MonthData, Prestamo, TarjetaCredito } from '../types';
-import { advanceIsoDateByMonth, todayIso } from './monthUtils';
+import { advanceIsoDateByMonth, proximaFechaDelMes, todayIso } from './monthUtils';
 import { newId } from './id';
 
-/** Valor especial usado en los selectores de "cómo pagar" para representar "tarjeta de crédito" (no es un id de ingreso real). */
-export const TARJETA_CREDITO = '__tarjeta__';
+/** Prefijo usado en los selectores de "cómo pagar" para distinguir el id de una tarjeta del id de un ingreso. */
+const PREFIJO_TARJETA = 'tarjeta:';
+
+export function valorParaTarjeta(tarjetaId: string): string {
+  return `${PREFIJO_TARJETA}${tarjetaId}`;
+}
+
+/** Extrae el id de tarjeta de un valor de selector, o null si el valor no representa una tarjeta. */
+export function tarjetaIdDesdeValor(valor: string): string | null {
+  return valor.startsWith(PREFIJO_TARJETA) ? valor.slice(PREFIJO_TARJETA.length) : null;
+}
 
 /** Alterna Cobrado/No Cobrado para un ingreso. */
 export function toggleEstadoIngreso(ingreso: Ingreso): Ingreso {
@@ -198,55 +207,64 @@ export function resumenPlanificador(month: MonthData | undefined): ResumenPlanif
   const idsIngresos = new Set(ingresos.map((i) => i.id));
 
   const asignaciones: AsignacionIngreso[] = ingresos.map((ingreso) => {
-    const todosAsignados = egresos.filter((e) => e.ingresoId === ingreso.id && !e.pagoConTarjeta);
+    const todosAsignados = egresos.filter((e) => e.ingresoId === ingreso.id && !e.tarjetaId);
     const totalAsignado = todosAsignados.reduce((sum, e) => sum + e.monto, 0);
     const egresosAsignados = todosAsignados.filter((e) => e.accion === 'NO PAGADO');
     return { ingreso, egresosAsignados, totalAsignado, disponible: ingreso.monto - totalAsignado };
   });
 
   const sinAsignar = egresos.filter(
-    (e) => e.accion === 'NO PAGADO' && !e.pagoConTarjeta && (!e.ingresoId || !idsIngresos.has(e.ingresoId)),
+    (e) => e.accion === 'NO PAGADO' && !e.tarjetaId && (!e.ingresoId || !idsIngresos.has(e.ingresoId)),
   );
   const totalSinAsignar = sinAsignar.reduce((sum, e) => sum + e.monto, 0);
 
-  const aCargarTarjeta = egresos.filter((e) => e.pagoConTarjeta && e.accion === 'NO PAGADO');
+  const aCargarTarjeta = egresos.filter((e) => e.tarjetaId && e.accion === 'NO PAGADO');
   const totalTarjeta = aCargarTarjeta.reduce((sum, e) => sum + e.monto, 0);
 
   return { asignaciones, sinAsignar, totalSinAsignar, aCargarTarjeta, totalTarjeta };
 }
 
 export interface ResumenTarjeta {
-  limite: number;
-  /** Deuda tal como aparece en el último estado de cuenta (ingresada a mano). */
-  saldoActual: number;
-  /** Egresos de este mes marcados "pagar con tarjeta" que aún no están reflejados en saldoActual. */
+  /** Egresos de este mes cargados a esta tarjeta que aún no están reflejados en saldoActual. */
   montoPorCargar: number;
   /** saldoActual + montoPorCargar: la deuda total una vez se facturen esos egresos pendientes. */
   deudaProyectada: number;
   /** limite - deudaProyectada: lo que te queda para seguir usando la tarjeta. Puede ser negativo si te pasaste. */
   disponible: number;
   pctUsado: number;
+  /** Próxima fecha (hoy o futura) en que cierra el estado de cuenta, o null si no se configuró diaCorte. */
+  proximaFechaCorte: string | null;
+  /** Próxima fecha (hoy o futura) en que vence el pago, o null si no se configuró diaPago. */
+  proximaFechaPago: string | null;
+  /** Días hasta proximaFechaPago (0 = hoy), o null si no hay diaPago configurado. */
+  diasParaPago: number | null;
 }
 
 /**
  * Combina el saldo de tarjeta que el usuario ingresa a mano (tal como
- * aparece en su último estado de cuenta) con lo que ya planeó cargar a la
- * tarjeta este mes (`totalTarjeta` de `resumenPlanificador`) pero que el
- * banco probablemente todavía no facturó, para estimar deuda y disponible.
+ * aparece en su último estado de cuenta) con lo que ya planeó cargar a esta
+ * tarjeta este mes (egresos de `month` con `tarjetaId === tarjeta.id`) pero
+ * que el banco probablemente todavía no facturó, para estimar deuda y
+ * disponible. También calcula, a partir de `diaCorte`/`diaPago`, cuándo cae
+ * la próxima fecha de corte/pago.
  */
-export function resumenTarjeta(tarjeta: TarjetaCredito, montoPorCargar: number): ResumenTarjeta {
+export function resumenTarjeta(tarjeta: TarjetaCredito, month: MonthData | undefined): ResumenTarjeta {
+  const egresos = month?.egresos ?? [];
+  const montoPorCargar = egresos
+    .filter((e) => e.tarjetaId === tarjeta.id && e.accion === 'NO PAGADO')
+    .reduce((sum, e) => sum + e.monto, 0);
+
   const deudaProyectada = tarjeta.saldoActual + montoPorCargar;
   const disponible = tarjeta.limite - deudaProyectada;
   const pctUsado = tarjeta.limite > 0 ? Math.min(Math.max((deudaProyectada / tarjeta.limite) * 100, 0), 100) : 0;
 
-  return {
-    limite: tarjeta.limite,
-    saldoActual: tarjeta.saldoActual,
-    montoPorCargar,
-    deudaProyectada,
-    disponible,
-    pctUsado,
-  };
+  const proximaFechaCorte = tarjeta.diaCorte ? proximaFechaDelMes(tarjeta.diaCorte) : null;
+  const proximaFechaPago = tarjeta.diaPago ? proximaFechaDelMes(tarjeta.diaPago) : null;
+  const diasParaPago = proximaFechaPago
+    ? differenceInCalendarDays(parseISO(proximaFechaPago), parseISO(todayIso()))
+    : null;
+
+  return { montoPorCargar, deudaProyectada, disponible, pctUsado, proximaFechaCorte, proximaFechaPago, diasParaPago };
 }
 
 export interface ResumenPrestamo {

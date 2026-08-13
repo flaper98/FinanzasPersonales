@@ -32,6 +32,7 @@ export function EgresosPage() {
   const total = visibles.reduce((s, e) => s + e.monto, 0);
   const detalleIngresoPorId = new Map((selectedMonth?.ingresos ?? []).map((i) => [i.id, i.detalle]));
   const detallePrestamoPorId = new Map(state.prestamos.map((p) => [p.id, p.entidad]));
+  const detalleTarjetaPorId = new Map(state.tarjetasCredito.map((t) => [t.id, t.nombre]));
   const totalPaginas = Math.max(Math.ceil(visibles.length / POR_PAGINA), 1);
   const paginaSegura = Math.min(pagina, totalPaginas);
   const paginados = visibles.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA);
@@ -104,8 +105,10 @@ export function EgresosPage() {
                       {e.finalizado && (
                         <span className="ml-2 text-xs font-normal text-slate-400">(finalizado)</span>
                       )}
-                      {e.pagoConTarjeta ? (
-                        <div className="text-xs font-normal text-slate-400">💳 Se paga con tarjeta de crédito</div>
+                      {e.tarjetaId && detalleTarjetaPorId.has(e.tarjetaId) ? (
+                        <div className="text-xs font-normal text-slate-400">
+                          💳 Se carga a: {detalleTarjetaPorId.get(e.tarjetaId)}
+                        </div>
                       ) : (
                         e.ingresoId &&
                         detalleIngresoPorId.has(e.ingresoId) && (

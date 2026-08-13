@@ -71,6 +71,22 @@ export function todayIso(): string {
 }
 
 /**
+ * Próxima fecha (hoy o futura) en que cae el día `dia` del mes (1-31), para
+ * fechas recurrentes como el corte/pago de una tarjeta. Si el día no existe
+ * en ese mes (ej. 31 en febrero), usa el último día del mes.
+ */
+export function proximaFechaDelMes(dia: number, desdeIso: string = todayIso()): string {
+  const hoy = parseISO(desdeIso);
+  const diaEnMes = (base: Date): Date => {
+    const ultimoDia = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+    return new Date(base.getFullYear(), base.getMonth(), Math.min(Math.max(dia, 1), ultimoDia));
+  };
+  let candidata = diaEnMes(hoy);
+  if (candidata < hoy) candidata = diaEnMes(addMonths(hoy, 1));
+  return format(candidata, 'yyyy-MM-dd');
+}
+
+/**
  * Ordena una lista por fecha ISO ascendente (más cercana primero). Los
  * elementos sin fecha ("Definir", null) quedan al final.
  */

@@ -14,8 +14,9 @@ import { GraficosPage } from './components/Charts/GraficosPage';
 import { BackupPage } from './components/Backup/BackupPage';
 import { PlanificadorPage } from './components/Planificador/PlanificadorPage';
 import { PrestamosPage } from './components/Prestamos/PrestamosPage';
+import { TarjetasPage } from './components/Tarjetas/TarjetasPage';
 
-export type Page = 'dashboard' | 'ingresos' | 'egresos' | 'planificador' | 'prestamos' | 'graficos' | 'backup';
+export type Page = 'dashboard' | 'ingresos' | 'egresos' | 'planificador' | 'prestamos' | 'tarjetas' | 'graficos' | 'backup';
 
 function PageContent({ page }: { page: Page }) {
   switch (page) {
@@ -29,6 +30,8 @@ function PageContent({ page }: { page: Page }) {
       return <PlanificadorPage />;
     case 'prestamos':
       return <PrestamosPage />;
+    case 'tarjetas':
+      return <TarjetasPage />;
     case 'graficos':
       return <GraficosPage />;
     case 'backup':
