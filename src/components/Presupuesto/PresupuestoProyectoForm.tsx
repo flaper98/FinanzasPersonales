@@ -122,30 +122,34 @@ export function PresupuestoProyectoForm({
           </div>
           <div className="space-y-2">
             {costos.map((costo) => (
-              <div key={costo.id} className="flex items-center gap-2">
+              <div key={costo.id} className="border border-slate-200 rounded-lg p-2 space-y-2">
                 <input
                   value={costo.nombre}
                   onChange={(e) => actualizarCosto(costo.id, { nombre: e.target.value })}
                   placeholder="Ej. Materiales, mano de obra, transporte…"
-                  className={`${inputClase} flex-1`}
+                  className={`${inputClase} w-full`}
                 />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={costo.monto}
-                  onChange={(e) => actualizarCosto(costo.id, { monto: parseFloat(e.target.value) || 0 })}
-                  placeholder="Monto"
-                  className={`${inputClase} w-28 shrink-0`}
-                />
-                <button
-                  type="button"
-                  onClick={() => eliminarCosto(costo.id)}
-                  disabled={costos.length <= 1}
-                  className="shrink-0 text-rose-600 hover:underline text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Quitar
-                </button>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs text-slate-500">
+                    Monto
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={costo.monto}
+                      onChange={(e) => actualizarCosto(costo.id, { monto: parseFloat(e.target.value) || 0 })}
+                      className={`${inputClase} w-28`}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => eliminarCosto(costo.id)}
+                    disabled={costos.length <= 1}
+                    className="ml-auto text-rose-600 hover:underline text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Quitar
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -130,45 +130,51 @@ export function ProformaForm({
               + Agregar ítem
             </button>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {items.map((item) => (
-              <div key={item.id} className="flex items-start gap-2">
+              <div key={item.id} className="border border-slate-200 rounded-lg p-2 space-y-2">
                 <textarea
                   value={item.descripcion}
                   onChange={(e) => actualizarItem(item.id, { descripcion: e.target.value })}
                   placeholder="Descripción (podés usar varias líneas)"
                   rows={2}
-                  className={`${inputClase} flex-1 resize-y`}
+                  className={`${inputClase} w-full resize-y`}
                 />
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={item.cantidad}
-                  onChange={(e) => actualizarItem(item.id, { cantidad: parseFloat(e.target.value) || 0 })}
-                  placeholder="Cant."
-                  className={`${inputClase} w-16 shrink-0`}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={item.precioUnitario}
-                  onChange={(e) => actualizarItem(item.id, { precioUnitario: parseFloat(e.target.value) || 0 })}
-                  placeholder="P. unit."
-                  className={`${inputClase} w-24 shrink-0`}
-                />
-                <div className="w-24 shrink-0 pt-1.5 text-sm text-right font-medium text-slate-600">
-                  {formatMonto(totalItemProforma(item))}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <label className="flex items-center gap-1.5 text-xs text-slate-500">
+                    Cant.
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={item.cantidad}
+                      onChange={(e) => actualizarItem(item.id, { cantidad: parseFloat(e.target.value) || 0 })}
+                      className={`${inputClase} w-16`}
+                    />
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-slate-500">
+                    P. unitario
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.precioUnitario}
+                      onChange={(e) => actualizarItem(item.id, { precioUnitario: parseFloat(e.target.value) || 0 })}
+                      className={`${inputClase} w-24`}
+                    />
+                  </label>
+                  <div className="ml-auto text-sm font-medium text-slate-700 whitespace-nowrap">
+                    Total: {formatMonto(totalItemProforma(item))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => eliminarItem(item.id)}
+                    disabled={items.length <= 1}
+                    className="text-rose-600 hover:underline text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    Quitar
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => eliminarItem(item.id)}
-                  disabled={items.length <= 1}
-                  className="shrink-0 pt-1.5 text-rose-600 hover:underline text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Quitar
-                </button>
               </div>
             ))}
           </div>

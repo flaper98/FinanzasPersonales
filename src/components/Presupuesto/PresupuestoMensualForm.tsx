@@ -95,30 +95,34 @@ export function PresupuestoMensualForm({
           </div>
           <div className="space-y-2">
             {categorias.map((cat) => (
-              <div key={cat.id} className="flex items-center gap-2">
+              <div key={cat.id} className="border border-slate-200 rounded-lg p-2 space-y-2">
                 <input
                   value={cat.nombre}
                   onChange={(e) => actualizarCategoria(cat.id, { nombre: e.target.value })}
                   placeholder="Ej. Alquiler, comida, transporte, ahorro…"
-                  className={`${inputClase} flex-1`}
+                  className={`${inputClase} w-full`}
                 />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={cat.monto}
-                  onChange={(e) => actualizarCategoria(cat.id, { monto: parseFloat(e.target.value) || 0 })}
-                  placeholder="Monto"
-                  className={`${inputClase} w-28 shrink-0`}
-                />
-                <button
-                  type="button"
-                  onClick={() => eliminarCategoria(cat.id)}
-                  disabled={categorias.length <= 1}
-                  className="shrink-0 text-rose-600 hover:underline text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Quitar
-                </button>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs text-slate-500">
+                    Monto
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={cat.monto}
+                      onChange={(e) => actualizarCategoria(cat.id, { monto: parseFloat(e.target.value) || 0 })}
+                      className={`${inputClase} w-28`}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => eliminarCategoria(cat.id)}
+                    disabled={categorias.length <= 1}
+                    className="ml-auto text-rose-600 hover:underline text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Quitar
+                  </button>
+                </div>
               </div>
             ))}
           </div>
