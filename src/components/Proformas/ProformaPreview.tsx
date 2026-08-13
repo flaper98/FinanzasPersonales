@@ -169,26 +169,20 @@ export function ProformaPreview({
 
             </div>
 
-            <div className="bg-slate-800 text-white px-6 py-4 text-center">
-              <p className="text-xs font-semibold uppercase tracking-wide">
+            <div className="border-t border-slate-200 px-6 py-4 text-center">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Proforma válida por {proforma.validezDias} días hábiles
               </p>
               {datosEmpresa.firma && (
-                <div className="inline-block bg-white rounded px-3 py-1.5 mt-3">
+                <div className="inline-block border border-slate-200 rounded px-3 py-1.5 mt-3">
                   <img src={datosEmpresa.firma} alt="Firma" className="h-12 object-contain" />
                 </div>
               )}
-              <p className="text-sm font-semibold mt-1">{datosEmpresa.nombre}</p>
-              <p className="text-xs opacity-80">
-                {[
-                  datosEmpresa.ruc && `RUC: ${datosEmpresa.ruc}`,
-                  datosEmpresa.telefono,
-                  datosEmpresa.celular,
-                  datosEmpresa.email,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
+              <p className="text-sm font-semibold text-slate-800 mt-1">{datosEmpresa.nombre}</p>
+              {datosEmpresa.ruc && <p className="text-xs text-slate-500">RUC: {datosEmpresa.ruc}</p>}
+              {datosEmpresa.telefono && <p className="text-xs text-slate-500">{datosEmpresa.telefono}</p>}
+              {datosEmpresa.celular && <p className="text-xs text-slate-500">{datosEmpresa.celular}</p>}
+              {datosEmpresa.email && <p className="text-xs text-slate-500">{datosEmpresa.email}</p>}
             </div>
           </div>
         </div>
