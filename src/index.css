@@ -10,3 +10,35 @@ body {
     Roboto,
     sans-serif;
 }
+
+/*
+ * Impresión de proformas (ver ProformaPreview.tsx): oculta todo lo demás de
+ * la app y deja visible solo el elemento marcado con .proforma-print, sin
+ * importar dónde esté en el DOM. Truco estándar: visibility (no display)
+ * porque un hijo visible dentro de un padre invisible igual se renderiza.
+ */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  /* Sin esto, la mayoría de los navegadores imprimen colores de fondo como blanco por
+     defecto (a menos que el usuario tilde "Gráficos de fondo" a mano en el diálogo de
+     impresión), y la franja de color del encabezado/pie de la proforma saldría en blanco. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .proforma-print,
+  .proforma-print * {
+    visibility: visible;
+  }
+  .proforma-print {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+}

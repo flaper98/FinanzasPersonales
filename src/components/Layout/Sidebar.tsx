@@ -8,6 +8,8 @@ const TABS: Array<{ id: Page; label: string }> = [
   { id: 'planificador', label: 'Planificador' },
   { id: 'prestamos', label: 'Préstamos' },
   { id: 'tarjetas', label: 'Tarjetas' },
+  { id: 'proformas', label: 'Proformas' },
+  { id: 'presupuesto', label: 'Presupuesto' },
   { id: 'graficos', label: 'Gráficos' },
   { id: 'backup', label: 'Backup' },
 ];

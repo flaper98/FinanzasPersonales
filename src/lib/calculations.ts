@@ -1,5 +1,16 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import type { Cuotas, Egreso, Ingreso, MonthData, Prestamo, TarjetaCredito } from '../types';
+import type {
+  Cuotas,
+  Egreso,
+  Ingreso,
+  ItemPresupuesto,
+  ItemProforma,
+  MonthData,
+  Prestamo,
+  PresupuestoProyecto,
+  Proforma,
+  TarjetaCredito,
+} from '../types';
 import { advanceIsoDateByMonth, proximaFechaDelMes, todayIso } from './monthUtils';
 import { newId } from './id';
 
@@ -462,4 +473,53 @@ export function simularAbonoCapital(
     cuotasNuevo: cronogramaNuevo.length,
     cuotaMensualNueva,
   };
+}
+
+export function totalItemProforma(item: ItemProforma): number {
+  return item.cantidad * item.precioUnitario;
+}
+
+export function totalProforma(items: ItemProforma[]): number {
+  return items.reduce((sum, i) => sum + totalItemProforma(i), 0);
+}
+
+/**
+ * Sugiere el siguiente número correlativo-año a partir de las proformas ya
+ * guardadas de este año (ej. si la última fue "040-2026", sugiere
+ * "041-2026"). Si no hay ninguna todavía este año, empieza en "001-{año}".
+ */
+export function siguienteNumeroProforma(proformas: Proforma[]): string {
+  const anioActual = new Date().getFullYear();
+  let maxCorrelativo = 0;
+  for (const p of proformas) {
+    const match = p.numero.match(/^(\d+)-(\d{4})$/);
+    if (match && Number(match[2]) === anioActual) {
+      maxCorrelativo = Math.max(maxCorrelativo, Number(match[1]));
+    }
+  }
+  return `${(maxCorrelativo + 1).toString().padStart(3, '0')}-${anioActual}`;
+}
+
+export function totalItemsPresupuesto(items: ItemPresupuesto[]): number {
+  return items.reduce((sum, i) => sum + i.monto, 0);
+}
+
+export interface ResumenPresupuestoMensual {
+  montoTotal: number;
+  categorias: ItemPresupuesto[];
+  totalAsignado: number;
+  /** montoTotal - totalAsignado: lo que todavía no repartiste en ninguna categoría (tu "ganancia"/sobrante si no lo asignas a nada). */
+  disponible: number;
+}
+
+export function resumenPresupuestoMensual(month: MonthData | undefined): ResumenPresupuestoMensual {
+  const montoTotal = month?.presupuesto?.montoTotal ?? 0;
+  const categorias = month?.presupuesto?.categorias ?? [];
+  const totalAsignado = totalItemsPresupuesto(categorias);
+  return { montoTotal, categorias, totalAsignado, disponible: montoTotal - totalAsignado };
+}
+
+/** Ganancia de un proyecto: lo que vas a cobrar menos lo que planeas gastar en costos. */
+export function gananciaProyecto(proyecto: PresupuestoProyecto): number {
+  return proyecto.montoTotal - totalItemsPresupuesto(proyecto.costos);
 }

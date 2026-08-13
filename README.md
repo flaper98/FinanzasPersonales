@@ -174,7 +174,18 @@ src/
     Layout/                  Sidebar (con cuenta/cerrar sesión) y selector de mes
     Dashboard/                Resumen y alertas
     Ingresos/, Egresos/       CRUD de cada tabla
-    Planificador/             Asignar egresos a la fuente de ingreso que los paga
+    Planificador/             Asignar egresos a la fuente de ingreso (o tarjeta) que los paga
+    Prestamos/                Préstamos a cuotas fijas + simulador de abono a capital
+    Tarjetas/                 Tarjetas de crédito: límite, deuda, fechas de corte/pago
+    Proformas/                Generador de proformas/cotizaciones en PDF (imprimibles)
     Charts/                   Gráficos
     Backup/                   Exportar/Importar, gestión de mes, notificaciones
 ```
+
+## Proformas
+
+Pestaña para generar cotizaciones para tus clientes, con el mismo estilo de las que emiten proveedores (encabezado con tus datos, cliente, tabla de ítems, total y forma de pago).
+
+- **Datos de mi empresa** (botón en la pestaña): nombre, RUC, dirección, contacto y cuenta bancaria — se completan una vez y aparecen automáticamente como remitente en cada proforma.
+- Cada proforma tiene número (sugerido automáticamente como correlativo del año, editable), fecha, validez en días hábiles, datos del cliente, e ítems con cantidad/descripción/precio unitario (el total de cada ítem y el total general se calculan solos).
+- "Ver / PDF" abre una vista de solo impresión: el botón "Descargar PDF" llama al diálogo de impresión del navegador — elegí "Guardar como PDF" como destino. No depende de ningún servicio externo ni backend.

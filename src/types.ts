@@ -34,6 +34,19 @@ export interface Egreso {
   prestamoId: string | null;
 }
 
+/** Categoría genérica con un monto: se usa tanto en el presupuesto mensual como en los costos de un proyecto. */
+export interface ItemPresupuesto {
+  id: string;
+  nombre: string;
+  monto: number;
+}
+
+/** Presupuesto mensual: cuánto planeas tener disponible este mes y en qué categorías planeas repartirlo. */
+export interface PresupuestoMensual {
+  montoTotal: number;
+  categorias: ItemPresupuesto[];
+}
+
 export interface MonthData {
   /** yyyy-MM */
   key: string;
@@ -41,6 +54,7 @@ export interface MonthData {
   saldoInicial: number;
   ingresos: Ingreso[];
   egresos: Egreso[];
+  presupuesto: PresupuestoMensual;
 }
 
 export interface TarjetaCredito {
@@ -80,10 +94,64 @@ export interface Prestamo {
 
 export type NewPrestamoInput = Omit<Prestamo, 'id'>;
 
+/** Datos de tu empresa/negocio, para completar el encabezado de cada proforma automáticamente. */
+export interface DatosEmpresa {
+  nombre: string;
+  ruc: string;
+  direccion: string;
+  telefono: string;
+  celular: string;
+  email: string;
+  /** Ej. "BBVA". */
+  banco: string;
+  numeroCuenta: string;
+  numeroCci: string;
+}
+
+export interface ItemProforma {
+  id: string;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+}
+
+export interface Proforma {
+  id: string;
+  /** Ej. "040-2026". */
+  numero: string;
+  /** ISO yyyy-MM-dd */
+  fecha: string;
+  validezDias: number;
+  clienteNombre: string;
+  clienteRuc: string;
+  clienteDireccion: string;
+  items: ItemProforma[];
+  /** Notas adicionales, ej. condiciones especiales (la forma de pago sale de DatosEmpresa). */
+  nota: string;
+}
+
+export type NewProformaInput = Omit<Proforma, 'id'>;
+
+/** Presupuesto de un proyecto/trabajo: cuánto vas a cobrar (montoTotal) contra cuánto planeas gastar (costos), para ver la ganancia. */
+export interface PresupuestoProyecto {
+  id: string;
+  nombre: string;
+  /** Id de la Proforma de la que sale este proyecto, o null si es un proyecto libre sin proforma. */
+  proformaId: string | null;
+  /** Monto total a cobrar por el proyecto (se sugiere desde la proforma vinculada, pero es editable). */
+  montoTotal: number;
+  costos: ItemPresupuesto[];
+}
+
+export type NewPresupuestoProyectoInput = Omit<PresupuestoProyecto, 'id'>;
+
 export interface FinanceState {
   months: Record<string, MonthData>;
   tarjetasCredito: TarjetaCredito[];
   prestamos: Prestamo[];
+  proformas: Proforma[];
+  datosEmpresa: DatosEmpresa;
+  presupuestosProyecto: PresupuestoProyecto[];
 }
 
 export type NewIngresoInput = Omit<Ingreso, 'id'>;

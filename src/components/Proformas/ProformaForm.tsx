@@ -1,0 +1,209 @@
+import { useState } from 'react';
+import type { ItemProforma, NewProformaInput, Proforma } from '../../types';
+import { Modal } from '../common/Modal';
+import { totalItemProforma, totalProforma } from '../../lib/calculations';
+import { newId } from '../../lib/id';
+import { todayIso } from '../../lib/monthUtils';
+
+const inputClase =
+  'w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
+
+function formatMonto(n: number): string {
+  return n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 });
+}
+
+function itemVacio(): ItemProforma {
+  return { id: newId(), descripcion: '', cantidad: 1, precioUnitario: 0 };
+}
+
+export function ProformaForm({
+  initial,
+  numeroSugerido,
+  onSubmit,
+  onClose,
+}: {
+  initial?: Proforma;
+  numeroSugerido: string;
+  onSubmit: (input: NewProformaInput) => void;
+  onClose: () => void;
+}) {
+  const [numero, setNumero] = useState(initial?.numero ?? numeroSugerido);
+  const [fecha, setFecha] = useState(initial?.fecha ?? todayIso());
+  const [validezDias, setValidezDias] = useState(initial?.validezDias?.toString() ?? '15');
+  const [clienteNombre, setClienteNombre] = useState(initial?.clienteNombre ?? '');
+  const [clienteRuc, setClienteRuc] = useState(initial?.clienteRuc ?? '');
+  const [clienteDireccion, setClienteDireccion] = useState(initial?.clienteDireccion ?? '');
+  const [items, setItems] = useState<ItemProforma[]>(initial?.items?.length ? initial.items : [itemVacio()]);
+  const [nota, setNota] = useState(initial?.nota ?? '');
+
+  function actualizarItem(id: string, cambios: Partial<ItemProforma>) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...cambios } : it)));
+  }
+
+  function eliminarItem(id: string) {
+    setItems((prev) => (prev.length > 1 ? prev.filter((it) => it.id !== id) : prev));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onSubmit({
+      numero: numero.trim(),
+      fecha,
+      validezDias: parseInt(validezDias, 10) || 0,
+      clienteNombre: clienteNombre.trim(),
+      clienteRuc: clienteRuc.trim(),
+      clienteDireccion: clienteDireccion.trim(),
+      items: items
+        .filter((it) => it.descripcion.trim() !== '')
+        .map((it) => ({ ...it, descripcion: it.descripcion.trim() })),
+      nota: nota.trim(),
+    });
+    onClose();
+  }
+
+  return (
+    <Modal title={initial ? 'Editar proforma' : 'Nueva proforma'} onClose={onClose} maxWidth="max-w-3xl">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Número</label>
+            <input
+              required
+              value={numero}
+              onChange={(e) => setNumero(e.target.value)}
+              placeholder="041-2026"
+              className={inputClase}
+            />
+            <p className="text-xs text-slate-400 mt-1">Correlativo-año. Se sugiere solo el siguiente disponible.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Fecha</label>
+            <input required type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={inputClase} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Válida por (días hábiles)</label>
+            <input
+              type="number"
+              min="1"
+              value={validezDias}
+              onChange={(e) => setValidezDias(e.target.value)}
+              className={inputClase}
+            />
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-700 mb-2">Cliente (destinatario)</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Nombre / Razón social</label>
+              <input
+                required
+                value={clienteNombre}
+                onChange={(e) => setClienteNombre(e.target.value)}
+                className={inputClase}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">RUC</label>
+              <input value={clienteRuc} onChange={(e) => setClienteRuc(e.target.value)} className={inputClase} />
+            </div>
+          </div>
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-slate-500 mb-1">Dirección</label>
+            <input
+              value={clienteDireccion}
+              onChange={(e) => setClienteDireccion(e.target.value)}
+              className={inputClase}
+            />
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-slate-700">Ítems</p>
+            <button
+              type="button"
+              onClick={() => setItems((prev) => [...prev, itemVacio()])}
+              className="text-xs font-medium text-brand-600 hover:underline"
+            >
+              + Agregar ítem
+            </button>
+          </div>
+          <div className="space-y-2">
+            {items.map((item) => (
+              <div key={item.id} className="flex items-start gap-2">
+                <textarea
+                  value={item.descripcion}
+                  onChange={(e) => actualizarItem(item.id, { descripcion: e.target.value })}
+                  placeholder="Descripción (podés usar varias líneas)"
+                  rows={2}
+                  className={`${inputClase} flex-1 resize-y`}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={item.cantidad}
+                  onChange={(e) => actualizarItem(item.id, { cantidad: parseFloat(e.target.value) || 0 })}
+                  placeholder="Cant."
+                  className={`${inputClase} w-16 shrink-0`}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={item.precioUnitario}
+                  onChange={(e) => actualizarItem(item.id, { precioUnitario: parseFloat(e.target.value) || 0 })}
+                  placeholder="P. unit."
+                  className={`${inputClase} w-24 shrink-0`}
+                />
+                <div className="w-24 shrink-0 pt-1.5 text-sm text-right font-medium text-slate-600">
+                  {formatMonto(totalItemProforma(item))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => eliminarItem(item.id)}
+                  disabled={items.length <= 1}
+                  className="shrink-0 pt-1.5 text-rose-600 hover:underline text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Quitar
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end mt-2 text-sm font-semibold text-slate-800">
+            Total: {formatMonto(totalProforma(items))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Notas adicionales (opcional)</label>
+          <textarea
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
+            rows={2}
+            placeholder="Condiciones especiales, tiempo de entrega, etc."
+            className={`${inputClase} resize-y`}
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white hover:bg-brand-700"
+          >
+            Guardar
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

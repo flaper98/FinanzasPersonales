@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type {
   Accion,
+  DatosEmpresa,
   Egreso,
   FinanceState,
   Ingreso,
@@ -8,8 +9,12 @@ import type {
   NewEgresoInput,
   NewIngresoInput,
   NewPrestamoInput,
+  NewPresupuestoProyectoInput,
+  NewProformaInput,
   NewTarjetaCreditoInput,
   Prestamo,
+  PresupuestoMensual,
+  Proforma,
 } from '../types';
 import { loadState } from '../lib/storage';
 import { apiGet, apiPut } from '../lib/api';
@@ -23,8 +28,9 @@ import {
   dashboardTotals,
   aplicarPagoAPrestamo,
   tarjetaIdDesdeValor,
+  totalProforma,
 } from '../lib/calculations';
-import { currentMonthKey, nextMonthKey, sortedMonthKeys } from '../lib/monthUtils';
+import { currentMonthKey, monthKeyOfIso, nextMonthKey, sortedMonthKeys } from '../lib/monthUtils';
 import { normalizarDetalle } from '../lib/text';
 
 interface FinanceContextValue {
@@ -55,6 +61,15 @@ interface FinanceContextValue {
   agregarPrestamo: (input: NewPrestamoInput) => void;
   actualizarPrestamo: (id: string, input: NewPrestamoInput) => void;
   eliminarPrestamo: (id: string) => void;
+  agregarProforma: (input: NewProformaInput) => void;
+  actualizarProforma: (id: string, input: NewProformaInput) => void;
+  eliminarProforma: (id: string) => void;
+  actualizarDatosEmpresa: (input: DatosEmpresa) => void;
+  agregarIngresoDesdeProforma: (proforma: Proforma) => void;
+  agregarPresupuestoProyecto: (input: NewPresupuestoProyectoInput) => void;
+  actualizarPresupuestoProyecto: (id: string, input: NewPresupuestoProyectoInput) => void;
+  eliminarPresupuestoProyecto: (id: string) => void;
+  actualizarPresupuestoMensual: (presupuesto: PresupuestoMensual) => void;
   asignarFuentePago: (egresoId: string, ingresoId: string | null) => void;
   reemplazarEstado: (nuevo: FinanceState) => void;
   importarFilas: (ingresos: NewIngresoInput[], egresos: NewEgresoInput[]) => void;
@@ -63,6 +78,18 @@ interface FinanceContextValue {
 }
 
 const FinanceContext = createContext<FinanceContextValue | null>(null);
+
+const DATOS_EMPRESA_VACIOS: DatosEmpresa = {
+  nombre: '',
+  ruc: '',
+  direccion: '',
+  telefono: '',
+  celular: '',
+  email: '',
+  banco: '',
+  numeroCuenta: '',
+  numeroCci: '',
+};
 
 /**
  * Normaliza el detalle de todo lo ya guardado (para que datos antiguos se
@@ -98,6 +125,7 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
     months[key] = {
       ...month,
       saldoInicial: month.saldoInicial ?? 0,
+      presupuesto: month.presupuesto ?? { montoTotal: 0, categorias: [] },
       ingresos: month.ingresos.map((i) => ({ ...i, detalle: normalizarDetalle(i.detalle) })),
       egresos: month.egresos.map((e) => {
         const legadoEgreso = e as Egreso & { pagoConTarjeta?: boolean };
@@ -114,6 +142,9 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
     months,
     tarjetasCredito,
     prestamos: state.prestamos ?? [],
+    proformas: state.proformas ?? [],
+    datosEmpresa: state.datosEmpresa ?? DATOS_EMPRESA_VACIOS,
+    presupuestosProyecto: state.presupuestosProyecto ?? [],
   };
 }
 
@@ -136,7 +167,7 @@ function ensureMonth(state: FinanceState, key: string): FinanceState {
     ...state,
     months: {
       ...state.months,
-      [key]: { key, saldoInicial: 0, ingresos: [], egresos: [] },
+      [key]: { key, saldoInicial: 0, ingresos: [], egresos: [], presupuesto: { montoTotal: 0, categorias: [] } },
     },
   };
 }
@@ -146,6 +177,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     months: {},
     tarjetasCredito: [],
     prestamos: [],
+    proformas: [],
+    datosEmpresa: DATOS_EMPRESA_VACIOS,
+    presupuestosProyecto: [],
   });
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey());
   const [cargando, setCargando] = useState(true);
@@ -252,7 +286,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       months: {
         ...prev.months,
-        [nuevaClave]: { key: nuevaClave, saldoInicial, ingresos: ingresosArrastrados, egresos: egresosArrastrados },
+        [nuevaClave]: {
+          key: nuevaClave,
+          saldoInicial,
+          ingresos: ingresosArrastrados,
+          egresos: egresosArrastrados,
+          presupuesto: { montoTotal: 0, categorias: [] },
+        },
       },
     }));
     setSelectedMonthKey(nuevaClave);
@@ -393,6 +433,75 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => ({ ...prev, prestamos: prev.prestamos.filter((p) => p.id !== id) }));
   }
 
+  function agregarProforma(input: NewProformaInput) {
+    setState((prev) => ({ ...prev, proformas: [...prev.proformas, { ...input, id: newId() }] }));
+  }
+
+  function actualizarProforma(id: string, input: NewProformaInput) {
+    setState((prev) => ({
+      ...prev,
+      proformas: prev.proformas.map((p) => (p.id === id ? { ...p, ...input } : p)),
+    }));
+  }
+
+  function eliminarProforma(id: string) {
+    setState((prev) => ({ ...prev, proformas: prev.proformas.filter((p) => p.id !== id) }));
+  }
+
+  function actualizarDatosEmpresa(input: DatosEmpresa) {
+    setState((prev) => ({ ...prev, datosEmpresa: input }));
+  }
+
+  /**
+   * Crea un Ingreso a partir del total de una proforma, en el mes que
+   * corresponde a su fecha (no necesariamente el mes seleccionado), y se
+   * cambia a ese mes para que el resultado sea visible de inmediato. Queda
+   * como NO COBRADO: márcalo COBRADO cuando el cliente pague de verdad.
+   */
+  function agregarIngresoDesdeProforma(proforma: Proforma) {
+    const monthKey = monthKeyOfIso(proforma.fecha);
+    const detalle = normalizarDetalle(
+      `Proforma ${proforma.numero}${proforma.clienteNombre ? ` - ${proforma.clienteNombre}` : ''}`,
+    );
+    updateMonth(monthKey, (month) => ({
+      ...month,
+      ingresos: [
+        ...month.ingresos,
+        {
+          id: newId(),
+          detalle,
+          monto: totalProforma(proforma.items),
+          fecha: proforma.fecha,
+          fijo: false,
+          estado: 'NO COBRADO',
+        },
+      ],
+    }));
+    setSelectedMonthKey(monthKey);
+  }
+
+  function agregarPresupuestoProyecto(input: NewPresupuestoProyectoInput) {
+    setState((prev) => ({ ...prev, presupuestosProyecto: [...prev.presupuestosProyecto, { ...input, id: newId() }] }));
+  }
+
+  function actualizarPresupuestoProyecto(id: string, input: NewPresupuestoProyectoInput) {
+    setState((prev) => ({
+      ...prev,
+      presupuestosProyecto: prev.presupuestosProyecto.map((p) => (p.id === id ? { ...p, ...input } : p)),
+    }));
+  }
+
+  function eliminarPresupuestoProyecto(id: string) {
+    setState((prev) => ({
+      ...prev,
+      presupuestosProyecto: prev.presupuestosProyecto.filter((p) => p.id !== id),
+    }));
+  }
+
+  function actualizarPresupuestoMensual(presupuesto: PresupuestoMensual) {
+    updateMonth(selectedMonthKey, (month) => ({ ...month, presupuesto }));
+  }
+
   /** `valor` es el id de un Ingreso, `valorParaTarjeta(id)` para marcarlo a cargar a esa tarjeta, o null para quitar la asignación. */
   function asignarFuentePago(egresoId: string, valor: string | null) {
     const tarjetaId = valor ? tarjetaIdDesdeValor(valor) : null;
@@ -474,6 +583,15 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     agregarPrestamo,
     actualizarPrestamo,
     eliminarPrestamo,
+    agregarProforma,
+    actualizarProforma,
+    eliminarProforma,
+    actualizarDatosEmpresa,
+    agregarIngresoDesdeProforma,
+    agregarPresupuestoProyecto,
+    actualizarPresupuestoProyecto,
+    eliminarPresupuestoProyecto,
+    actualizarPresupuestoMensual,
     asignarFuentePago,
     reemplazarEstado,
     importarFilas,
