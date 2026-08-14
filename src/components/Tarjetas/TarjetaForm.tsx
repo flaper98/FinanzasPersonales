@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { MonedaTarjeta, NewTarjetaCreditoInput, TarjetaCredito } from '../../types';
+import type { NewTarjetaCreditoInput, TarjetaCredito } from '../../types';
 import { Modal } from '../common/Modal';
 
 export function TarjetaForm({
@@ -12,9 +12,9 @@ export function TarjetaForm({
   onClose: () => void;
 }) {
   const [nombre, setNombre] = useState(initial?.nombre ?? '');
-  const [moneda, setMoneda] = useState<MonedaTarjeta>(initial?.moneda ?? 'PEN');
   const [limite, setLimite] = useState(initial?.limite?.toString() ?? '');
   const [saldoActual, setSaldoActual] = useState(initial?.saldoActual?.toString() ?? '');
+  const [saldoActualUSD, setSaldoActualUSD] = useState(initial?.saldoActualUSD?.toString() ?? '');
   const [diaCorte, setDiaCorte] = useState(initial?.diaCorte?.toString() ?? '');
   const [diaPago, setDiaPago] = useState(initial?.diaPago?.toString() ?? '');
 
@@ -22,9 +22,9 @@ export function TarjetaForm({
     e.preventDefault();
     onSubmit({
       nombre: nombre.trim(),
-      moneda,
       limite: parseFloat(limite) || 0,
       saldoActual: parseFloat(saldoActual) || 0,
+      saldoActualUSD: parseFloat(saldoActualUSD) || 0,
       diaCorte: diaCorte ? Math.min(Math.max(parseInt(diaCorte, 10) || 1, 1), 31) : null,
       diaPago: diaPago ? Math.min(Math.max(parseInt(diaPago, 10) || 1, 1), 31) : null,
     });
@@ -46,51 +46,22 @@ export function TarjetaForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Moneda</label>
-          <div className="flex gap-2">
-            {(['PEN', 'USD'] as const).map((m) => (
-              <button
-                type="button"
-                key={m}
-                onClick={() => setMoneda(m)}
-                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition ${
-                  moneda === m
-                    ? 'bg-brand-600 text-white border-brand-600'
-                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-                }`}
-              >
-                {m === 'PEN' ? 'Soles (S/)' : 'Dólares (US$)'}
-              </button>
-            ))}
-          </div>
-          {moneda === 'USD' && (
-            <p className="text-xs text-slate-400 mt-1">
-              Para tarjetas bimoneda con saldo en dólares. El equivalente en soles se calcula solo con el tipo de
-              cambio del día (ver pestaña Tarjetas).
-            </p>
-          )}
+          <label className="block text-sm font-medium text-slate-700 mb-1">Línea de crédito (S/)</label>
+          <input
+            required
+            type="number"
+            step="0.01"
+            min="0"
+            value={limite}
+            onChange={(e) => setLimite(e.target.value)}
+            placeholder="5000"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Línea de crédito ({moneda === 'USD' ? 'US$' : 'S/'})
-            </label>
-            <input
-              required
-              type="number"
-              step="0.01"
-              min="0"
-              value={limite}
-              onChange={(e) => setLimite(e.target.value)}
-              placeholder="5000"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Deuda actual ({moneda === 'USD' ? 'US$' : 'S/'})
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Deuda actual en soles (S/)</label>
             <input
               required
               type="number"
@@ -102,7 +73,24 @@ export function TarjetaForm({
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Deuda actual en dólares (US$)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={saldoActualUSD}
+              onChange={(e) => setSaldoActualUSD(e.target.value)}
+              placeholder="0"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
         </div>
+        <p className="text-xs text-slate-400 -mt-2">
+          Si tu tarjeta es bimoneda (lleva saldo en soles y en dólares a la vez), cargá ambos. Si no, dejá la de
+          dólares en 0. El equivalente en soles de la parte en dólares se calcula con el tipo de cambio del día (ver
+          arriba en esta pestaña).
+        </p>
 
         <div className="grid grid-cols-2 gap-3">
           <div>

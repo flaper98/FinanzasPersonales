@@ -92,8 +92,8 @@ function TarjetaCard({
 }) {
   const { selectedMonth } = useFinance();
   const [verGastos, setVerGastos] = useState(false);
-  const esUSD = tarjeta.moneda === 'USD';
-  const tcListo = !esUSD || (tipoCambio !== null && tipoCambio > 0);
+  const tieneUSD = tarjeta.saldoActualUSD > 0;
+  const tcListo = !tieneUSD || (tipoCambio !== null && tipoCambio > 0);
   const resumen = resumenTarjeta(tarjeta, selectedMonth, tipoCambio ?? undefined);
   const sobregirado = resumen.disponible < 0;
 
@@ -107,8 +107,10 @@ function TarjetaCard({
       <div className="flex items-start justify-between gap-2 flex-wrap">
         <div className="font-semibold text-slate-800 flex items-center gap-2">
           💳 {tarjeta.nombre}
-          {esUSD && (
-            <span className="text-xs font-medium text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">US$</span>
+          {tieneUSD && (
+            <span className="text-xs font-medium text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">
+              bimoneda
+            </span>
           )}
         </div>
         <div className="flex gap-3 text-xs font-medium">
@@ -124,46 +126,51 @@ function TarjetaCard({
         </div>
       </div>
 
-      {!tcListo ? (
-        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-          Esperando el tipo de cambio (arriba) para calcular el equivalente en soles. Mientras tanto: deuda US${' '}
-          {formatUSD(tarjeta.saldoActual)}.
-        </p>
-      ) : (
-        <>
-          <div>
-            <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${sobregirado ? 'bg-rose-500' : 'bg-purple-500'}`}
-                style={{ width: `${resumen.pctUsado}%` }}
-              />
-            </div>
-          </div>
+      <div>
+        <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+          {tcListo ? (
+            <div
+              className={`h-full rounded-full transition-all ${sobregirado ? 'bg-rose-500' : 'bg-purple-500'}`}
+              style={{ width: `${resumen.pctUsado}%` }}
+            />
+          ) : (
+            <div className="h-full w-full bg-slate-200" />
+          )}
+        </div>
+      </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-            <div>
-              <div className="text-xs text-slate-400">Deuda actual</div>
-              <div className="font-semibold text-slate-700">
-                {esUSD ? formatUSD(tarjeta.saldoActual) : formatMonto(tarjeta.saldoActual)}
-              </div>
-              {esUSD && <div className="text-xs text-slate-400">≈ {formatMonto(resumen.saldoActualPEN)}</div>}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div>
+          <div className="text-xs text-slate-400">Deuda actual</div>
+          <div className="font-semibold text-slate-700">{formatMonto(tarjeta.saldoActual)}</div>
+          {tieneUSD && (
+            <div className="text-xs text-slate-400">
+              + {formatUSD(tarjeta.saldoActualUSD)}
+              {tcListo && ` (≈ ${formatMonto(resumen.saldoActualUSDenPEN)})`}
             </div>
-            <div>
-              <div className="text-xs text-slate-400">Por cargar este mes</div>
-              <div className="font-semibold text-slate-700">{formatMonto(resumen.montoPorCargar)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-400">Deuda proyectada</div>
-              <div className="font-semibold text-slate-700">{formatMonto(resumen.deudaProyectada)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-400">Disponible</div>
-              <div className={`font-semibold ${sobregirado ? 'text-rose-600' : 'text-emerald-600'}`}>
-                {formatMonto(resumen.disponible)}
-              </div>
-            </div>
+          )}
+        </div>
+        <div>
+          <div className="text-xs text-slate-400">Por cargar este mes</div>
+          <div className="font-semibold text-slate-700">{formatMonto(resumen.montoPorCargar)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-400">Deuda proyectada</div>
+          <div className="font-semibold text-slate-700">{tcListo ? formatMonto(resumen.deudaProyectada) : '—'}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-400">Disponible</div>
+          <div className={`font-semibold ${tcListo && sobregirado ? 'text-rose-600' : 'text-emerald-600'}`}>
+            {tcListo ? formatMonto(resumen.disponible) : '—'}
           </div>
-        </>
+        </div>
+      </div>
+
+      {!tcListo && (
+        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+          Esperando el tipo de cambio (arriba) para calcular la deuda proyectada y el disponible combinando soles y
+          dólares.
+        </p>
       )}
 
       {(tarjeta.diaCorte || tarjeta.diaPago) && (
@@ -226,7 +233,7 @@ export function TarjetasPage() {
   const [editando, setEditando] = useState<TarjetaCredito | null>(null);
   const [overrideTC, setOverrideTC] = useState('');
 
-  const hayUSD = state.tarjetasCredito.some((t) => t.moneda === 'USD');
+  const hayUSD = state.tarjetasCredito.some((t) => t.saldoActualUSD > 0);
   const tc = useTipoCambio(hayUSD);
   const overrideNum = parseFloat(overrideTC);
   const tipoCambioEfectivo = overrideNum > 0 ? overrideNum : (tc.valor ?? null);

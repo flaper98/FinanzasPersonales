@@ -236,15 +236,13 @@ export function resumenPlanificador(month: MonthData | undefined): ResumenPlanif
 }
 
 export interface ResumenTarjeta {
-  /** `tarjeta.limite` convertido a soles (igual a `tarjeta.limite` si la tarjeta ya es en soles). */
-  limitePEN: number;
-  /** `tarjeta.saldoActual` convertido a soles. */
-  saldoActualPEN: number;
-  /** Egresos de este mes cargados a esta tarjeta que aún no están reflejados en saldoActual (siempre en soles). */
+  /** `tarjeta.saldoActualUSD` convertido a soles con `tipoCambio` (0 si la tarjeta no tiene saldo en dólares). */
+  saldoActualUSDenPEN: number;
+  /** Egresos de este mes cargados a esta tarjeta que aún no están reflejados en saldoActual/saldoActualUSD (siempre en soles). */
   montoPorCargar: number;
-  /** saldoActualPEN + montoPorCargar: la deuda total en soles una vez se facturen esos egresos pendientes. */
+  /** saldoActual + saldoActualUSDenPEN + montoPorCargar: la deuda total en soles, sumando ambas monedas. */
   deudaProyectada: number;
-  /** limitePEN - deudaProyectada: lo que te queda para seguir usando la tarjeta. Puede ser negativo si te pasaste. */
+  /** limite - deudaProyectada: lo que te queda para seguir usando la tarjeta. Puede ser negativo si te pasaste. */
   disponible: number;
   pctUsado: number;
   /** Próxima fecha (hoy o futura) en que cierra el estado de cuenta, o null si no se configuró diaCorte. */
@@ -263,23 +261,23 @@ export interface ResumenTarjeta {
  * disponible. También calcula, a partir de `diaCorte`/`diaPago`, cuándo cae
  * la próxima fecha de corte/pago.
  *
- * Si la tarjeta es en dólares (`moneda === 'USD'`), convierte límite y saldo
- * a soles con `tipoCambio` (los egresos vinculados ya están en soles, como
- * el resto de la app) para poder comparar todo en la misma moneda.
+ * Las tarjetas bimoneda llevan un saldo en soles (`saldoActual`) y otro en
+ * dólares (`saldoActualUSD`) a la vez, no una u otra: la parte en dólares se
+ * convierte a soles con `tipoCambio` (los egresos vinculados ya están en
+ * soles, como el resto de la app) y se suma a la parte en soles para
+ * comparar todo en la misma moneda.
  */
 export function resumenTarjeta(tarjeta: TarjetaCredito, month: MonthData | undefined, tipoCambio = 1): ResumenTarjeta {
-  const factor = tarjeta.moneda === 'USD' ? tipoCambio : 1;
-  const limitePEN = tarjeta.limite * factor;
-  const saldoActualPEN = tarjeta.saldoActual * factor;
+  const saldoActualUSDenPEN = tarjeta.saldoActualUSD * tipoCambio;
 
   const egresos = month?.egresos ?? [];
   const montoPorCargar = egresos
     .filter((e) => e.tarjetaId === tarjeta.id && e.accion === 'NO PAGADO')
     .reduce((sum, e) => sum + e.monto, 0);
 
-  const deudaProyectada = saldoActualPEN + montoPorCargar;
-  const disponible = limitePEN - deudaProyectada;
-  const pctUsado = limitePEN > 0 ? Math.min(Math.max((deudaProyectada / limitePEN) * 100, 0), 100) : 0;
+  const deudaProyectada = tarjeta.saldoActual + saldoActualUSDenPEN + montoPorCargar;
+  const disponible = tarjeta.limite - deudaProyectada;
+  const pctUsado = tarjeta.limite > 0 ? Math.min(Math.max((deudaProyectada / tarjeta.limite) * 100, 0), 100) : 0;
 
   const proximaFechaCorte = tarjeta.diaCorte ? proximaFechaDelMes(tarjeta.diaCorte) : null;
   const proximaFechaPago = tarjeta.diaPago ? proximaFechaDelMes(tarjeta.diaPago) : null;
@@ -288,8 +286,7 @@ export function resumenTarjeta(tarjeta: TarjetaCredito, month: MonthData | undef
     : null;
 
   return {
-    limitePEN,
-    saldoActualPEN,
+    saldoActualUSDenPEN,
     montoPorCargar,
     deudaProyectada,
     disponible,

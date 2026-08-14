@@ -12,7 +12,7 @@ function formatMonto(n: number): string {
 /** Vista resumida y de solo lectura de cada tarjeta (la edición vive en la pestaña Tarjetas). */
 function ResumenTarjetasCompacto() {
   const { state, selectedMonth } = useFinance();
-  const hayUSD = state.tarjetasCredito.some((t) => t.moneda === 'USD');
+  const hayUSD = state.tarjetasCredito.some((t) => t.saldoActualUSD > 0);
   const tc = useTipoCambio(hayUSD);
   if (state.tarjetasCredito.length === 0) return null;
 
@@ -21,8 +21,8 @@ function ResumenTarjetasCompacto() {
       <h3 className="text-sm font-semibold text-slate-700 mb-3">💳 Tarjetas de crédito</h3>
       <ul className="divide-y divide-slate-100">
         {state.tarjetasCredito.map((t) => {
-          const esUSD = t.moneda === 'USD';
-          const tcListo = !esUSD || tc.valor !== null;
+          const tieneUSD = t.saldoActualUSD > 0;
+          const tcListo = !tieneUSD || tc.valor !== null;
           const resumen = resumenTarjeta(t, selectedMonth, tc.valor ?? undefined);
           const sobregirado = resumen.disponible < 0;
           return (

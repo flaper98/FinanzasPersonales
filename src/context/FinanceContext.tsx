@@ -16,6 +16,7 @@ import type {
   PresupuestoMensual,
   PresupuestoProyecto,
   Proforma,
+  TarjetaCredito,
 } from '../types';
 import { loadState } from '../lib/storage';
 import { apiGet, apiPut } from '../lib/api';
@@ -116,16 +117,25 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
       {
         id: tarjetaLegadaId,
         nombre: 'Mi tarjeta',
-        moneda: 'PEN',
         limite: legado.tarjetaCredito.limite,
         saldoActual: legado.tarjetaCredito.saldoActual,
+        saldoActualUSD: 0,
         diaCorte: null,
         diaPago: null,
       },
     ];
   }
-  // Tarjetas guardadas antes de que existiera moneda (bimoneda) se asumen en soles.
-  tarjetasCredito = tarjetasCredito.map((t) => ({ ...t, moneda: t.moneda ?? 'PEN' }));
+  // Completa saldoActualUSD en tarjetas guardadas antes de que existiera (asumido 0). Si venían
+  // de la versión intermedia "una tarjeta = una sola moneda" (campo `moneda`), migra su saldo:
+  // si esa tarjeta entera estaba marcada en dólares, ese saldo pasa a ser la pata en dólares.
+  tarjetasCredito = tarjetasCredito.map((t) => {
+    const legadoTarjeta = t as TarjetaCredito & { moneda?: 'PEN' | 'USD' };
+    const { moneda, ...resto } = legadoTarjeta;
+    if (moneda === 'USD') {
+      return { ...resto, saldoActual: 0, saldoActualUSD: resto.saldoActual };
+    }
+    return { ...resto, saldoActualUSD: resto.saldoActualUSD ?? 0 };
+  });
 
   const months: FinanceState['months'] = {};
   for (const [key, month] of Object.entries(state.months)) {
