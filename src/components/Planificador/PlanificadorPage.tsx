@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { resumenPlanificador, resumenTarjeta, valorParaTarjeta } from '../../lib/calculations';
 import { formatIsoDate, monthLabel, ordenarPorFecha } from '../../lib/monthUtils';
+import { useTipoCambio } from '../../lib/useTipoCambio';
 import type { Egreso, TarjetaCredito } from '../../types';
 
 function formatMonto(n: number): string {
@@ -11,6 +12,8 @@ function formatMonto(n: number): string {
 /** Vista resumida y de solo lectura de cada tarjeta (la edición vive en la pestaña Tarjetas). */
 function ResumenTarjetasCompacto() {
   const { state, selectedMonth } = useFinance();
+  const hayUSD = state.tarjetasCredito.some((t) => t.moneda === 'USD');
+  const tc = useTipoCambio(hayUSD);
   if (state.tarjetasCredito.length === 0) return null;
 
   return (
@@ -18,14 +21,22 @@ function ResumenTarjetasCompacto() {
       <h3 className="text-sm font-semibold text-slate-700 mb-3">💳 Tarjetas de crédito</h3>
       <ul className="divide-y divide-slate-100">
         {state.tarjetasCredito.map((t) => {
-          const resumen = resumenTarjeta(t, selectedMonth);
+          const esUSD = t.moneda === 'USD';
+          const tcListo = !esUSD || tc.valor !== null;
+          const resumen = resumenTarjeta(t, selectedMonth, tc.valor ?? undefined);
           const sobregirado = resumen.disponible < 0;
           return (
             <li key={t.id} className="py-2 flex items-center justify-between gap-3 text-sm">
               <span className="text-slate-700 truncate">{t.nombre}</span>
-              <span className={`font-semibold whitespace-nowrap ${sobregirado ? 'text-rose-600' : 'text-emerald-600'}`}>
-                Disponible {formatMonto(resumen.disponible)}
-              </span>
+              {tcListo ? (
+                <span
+                  className={`font-semibold whitespace-nowrap ${sobregirado ? 'text-rose-600' : 'text-emerald-600'}`}
+                >
+                  Disponible {formatMonto(resumen.disponible)}
+                </span>
+              ) : (
+                <span className="text-xs text-slate-400 whitespace-nowrap">Esperando tipo de cambio…</span>
+              )}
             </li>
           );
         })}

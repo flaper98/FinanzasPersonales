@@ -116,6 +116,7 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
       {
         id: tarjetaLegadaId,
         nombre: 'Mi tarjeta',
+        moneda: 'PEN',
         limite: legado.tarjetaCredito.limite,
         saldoActual: legado.tarjetaCredito.saldoActual,
         diaCorte: null,
@@ -123,6 +124,8 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
       },
     ];
   }
+  // Tarjetas guardadas antes de que existiera moneda (bimoneda) se asumen en soles.
+  tarjetasCredito = tarjetasCredito.map((t) => ({ ...t, moneda: t.moneda ?? 'PEN' }));
 
   const months: FinanceState['months'] = {};
   for (const [key, month] of Object.entries(state.months)) {

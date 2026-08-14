@@ -57,13 +57,17 @@ export interface MonthData {
   presupuesto: PresupuestoMensual;
 }
 
+export type MonedaTarjeta = 'PEN' | 'USD';
+
 export interface TarjetaCredito {
   id: string;
   /** Ej. "BCP Visa Signature", para distinguirla si hay varias. */
   nombre: string;
-  /** Línea de crédito total que da el banco. */
+  /** Moneda en la que está expresado `limite`/`saldoActual` (ej. tarjetas bimoneda en dólares). */
+  moneda: MonedaTarjeta;
+  /** Línea de crédito total que da el banco, en `moneda`. */
   limite: number;
-  /** Deuda actual tal como aparece en el último estado de cuenta (se actualiza a mano cuando llega uno nuevo). */
+  /** Deuda actual tal como aparece en el último estado de cuenta, en `moneda` (se actualiza a mano cuando llega uno nuevo). */
   saldoActual: number;
   /** Día del mes (1-31) en que cierra el estado de cuenta, o null si no se definió. */
   diaCorte: number | null;
