@@ -90,7 +90,7 @@ function MigracionModal() {
 function AppShell() {
   const [page, setPage] = useState<Page>('dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
-  const { cargando, errorCarga, errorGuardado } = useFinance();
+  const { cargando, errorCarga, errorGuardado, hayCambiosSinGuardar } = useFinance();
 
   function handleNavigate(next: Page) {
     setPage(next);
@@ -125,7 +125,7 @@ function AppShell() {
               No se pudo guardar el último cambio: {errorGuardado}
             </div>
           )}
-          <TopBar onOpenMenu={() => setMenuOpen(true)} />
+          <TopBar onOpenMenu={() => setMenuOpen(true)} guardando={hayCambiosSinGuardar} />
           <main className="max-w-6xl mx-auto px-4 py-6">
             <PageContent page={page} />
           </main>

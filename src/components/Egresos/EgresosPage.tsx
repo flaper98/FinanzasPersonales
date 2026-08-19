@@ -14,12 +14,14 @@ function formatMonto(n: number): string {
 }
 
 type Filtro = 'TODOS' | 'FIJO' | 'NO FIJO';
+type FiltroEstado = 'TODOS' | 'PAGADO' | 'NO PAGADO';
 
 export function EgresosPage() {
   const { selectedMonth, state, agregarEgreso, actualizarEgreso, eliminarEgreso, alternarPagado } = useFinance();
   const [editando, setEditando] = useState<Egreso | null>(null);
   const [creando, setCreando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('TODOS');
   const [fuentePago, setFuentePago] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
@@ -28,6 +30,7 @@ export function EgresosPage() {
   const egresos = selectedMonth?.egresos ?? [];
   const visibles = useMemo(() => {
     let filtrados = filtro === 'TODOS' ? egresos : egresos.filter((e) => e.tipo === filtro);
+    if (filtroEstado !== 'TODOS') filtrados = filtrados.filter((e) => e.accion === filtroEstado);
     if (fuentePago === SIN_ASIGNAR) {
       filtrados = filtrados.filter((e) => !e.tarjetaId && !e.ingresoId);
     } else if (fuentePago) {
@@ -39,7 +42,7 @@ export function EgresosPage() {
     const termino = busqueda.trim().toLowerCase();
     if (termino) filtrados = filtrados.filter((e) => e.detalle.toLowerCase().includes(termino));
     return ordenarPorFecha(filtrados, (e) => e.fecha);
-  }, [egresos, filtro, fuentePago, busqueda]);
+  }, [egresos, filtro, filtroEstado, fuentePago, busqueda]);
   const total = visibles.reduce((s, e) => s + e.monto, 0);
   const detalleIngresoPorId = new Map(ingresosDelMes.map((i) => [i.id, i.detalle]));
   const detallePrestamoPorId = new Map(state.prestamos.map((p) => [p.id, p.entidad]));
@@ -47,11 +50,11 @@ export function EgresosPage() {
   const totalPaginas = Math.max(Math.ceil(visibles.length / POR_PAGINA), 1);
   const paginaSegura = Math.min(pagina, totalPaginas);
   const paginados = visibles.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA);
-  const hayFiltrosActivos = filtro !== 'TODOS' || fuentePago !== '' || busqueda !== '';
+  const hayFiltrosActivos = filtro !== 'TODOS' || filtroEstado !== 'TODOS' || fuentePago !== '' || busqueda !== '';
 
   useEffect(() => {
     setPagina(1);
-  }, [busqueda, filtro, fuentePago, selectedMonth?.key]);
+  }, [busqueda, filtro, filtroEstado, fuentePago, selectedMonth?.key]);
 
   return (
     <div className="space-y-4">
@@ -72,6 +75,19 @@ export function EgresosPage() {
                 onClick={() => setFiltro(f)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
                   filtro === f ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+            {(['TODOS', 'PAGADO', 'NO PAGADO'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFiltroEstado(f)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                  filtroEstado === f ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 {f}

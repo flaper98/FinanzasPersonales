@@ -43,6 +43,8 @@ interface FinanceContextValue {
   cargando: boolean;
   errorCarga: string | null;
   errorGuardado: string | null;
+  /** true desde que cambia algo hasta que termina de guardarse en el servidor (incluye la espera del debounce). */
+  hayCambiosSinGuardar: boolean;
   migracionDisponible: FinanceState | null;
   confirmarMigracion: () => void;
   descartarMigracion: () => void;
@@ -204,6 +206,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+  const [hayCambiosSinGuardar, setHayCambiosSinGuardar] = useState(false);
   const [migracionDisponible, setMigracionDisponible] = useState<FinanceState | null>(null);
 
   // Carga los datos de la cuenta desde el servidor al montar.
@@ -239,13 +242,27 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   // Guarda en el servidor (con un pequeño debounce) cada vez que cambian los datos, una vez terminada la carga inicial.
   useEffect(() => {
     if (cargando) return;
+    setHayCambiosSinGuardar(true);
     const timeout = window.setTimeout(() => {
       apiPut('/finance', state)
         .then(() => setErrorGuardado(null))
-        .catch((err) => setErrorGuardado(err instanceof Error ? err.message : 'No se pudo guardar en el servidor.'));
+        .catch((err) => setErrorGuardado(err instanceof Error ? err.message : 'No se pudo guardar en el servidor.'))
+        .finally(() => setHayCambiosSinGuardar(false));
     }, 800);
     return () => window.clearTimeout(timeout);
   }, [state, cargando]);
+
+  // Avisa antes de cerrar/recargar la pestaña si todavía hay cambios sin confirmar en el servidor
+  // (el guardado tiene un debounce de 800ms, así que hay una ventana corta donde se podría perder algo).
+  useEffect(() => {
+    if (!hayCambiosSinGuardar) return;
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hayCambiosSinGuardar]);
 
   const monthKeys = useMemo(() => sortedMonthKeys(Object.keys(state.months)), [state.months]);
 
@@ -622,6 +639,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     cargando,
     errorCarga,
     errorGuardado,
+    hayCambiosSinGuardar,
     migracionDisponible,
     confirmarMigracion,
     descartarMigracion,
