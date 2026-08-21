@@ -29,6 +29,8 @@ export function ProformaPreview({
 }) {
   const total = totalProforma(proforma.items);
   const hayDatosBanco = datosEmpresa.banco || datosEmpresa.numeroCuenta || datosEmpresa.numeroCci;
+  const esServicio = proforma.tipo === 'servicio';
+  const totalHoras = proforma.items.reduce((sum, it) => sum + it.cantidad, 0);
 
   return (
     <div className="fixed inset-0 z-40 bg-slate-900/60 overflow-y-auto print:bg-white print:static">
@@ -102,9 +104,11 @@ export function ProformaPreview({
                 <thead>
                   <tr className="bg-slate-50 text-xs uppercase text-slate-500">
                     <th className="text-center px-3 py-2 border border-slate-200 w-12">Ítem</th>
-                    <th className="text-center px-3 py-2 border border-slate-200 w-16">Cant.</th>
+                    <th className="text-center px-3 py-2 border border-slate-200 w-16">{esServicio ? 'Horas' : 'Cant.'}</th>
                     <th className="text-left px-3 py-2 border border-slate-200">Descripción</th>
-                    <th className="text-right px-3 py-2 border border-slate-200 w-28">P. Unitario</th>
+                    <th className="text-right px-3 py-2 border border-slate-200 w-28">
+                      {esServicio ? 'Tarifa/Hora' : 'P. Unitario'}
+                    </th>
                     <th className="text-right px-3 py-2 border border-slate-200 w-28">P. Total</th>
                   </tr>
                 </thead>
@@ -126,6 +130,14 @@ export function ProformaPreview({
                   ))}
                 </tbody>
                 <tfoot>
+                  {esServicio && (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-2 border border-slate-200 text-right text-slate-500">
+                        Total horas
+                      </td>
+                      <td className="px-3 py-2 border border-slate-200 text-right text-slate-500">{totalHoras}</td>
+                    </tr>
+                  )}
                   <tr>
                     <td colSpan={4} className="px-3 py-2 border border-slate-200 text-right font-semibold">
                       Total

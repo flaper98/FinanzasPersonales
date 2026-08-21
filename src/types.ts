@@ -112,10 +112,15 @@ export interface DatosEmpresa {
   firma: string;
 }
 
+/** 'productos': ítems por cantidad × precio unitario. 'servicio': ítems por horas × tarifa por hora (mismos campos, reetiquetados). */
+export type TipoProforma = 'productos' | 'servicio';
+
 export interface ItemProforma {
   id: string;
   descripcion: string;
+  /** Cantidad de unidades, u horas trabajadas si la proforma es de tipo 'servicio'. */
   cantidad: number;
+  /** Precio por unidad, o tarifa por hora si la proforma es de tipo 'servicio'. */
   precioUnitario: number;
 }
 
@@ -126,6 +131,7 @@ export interface Proforma {
   /** ISO yyyy-MM-dd */
   fecha: string;
   validezDias: number;
+  tipo: TipoProforma;
   clienteNombre: string;
   clienteRuc: string;
   /** Persona de contacto a quien se dirige la proforma, ej. "Juan Pérez". */

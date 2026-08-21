@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ItemProforma, NewProformaInput, Proforma } from '../../types';
+import type { ItemProforma, NewProformaInput, Proforma, TipoProforma } from '../../types';
 import { Modal } from '../common/Modal';
 import { totalItemProforma, totalProforma } from '../../lib/calculations';
 import { newId } from '../../lib/id';
@@ -30,6 +30,8 @@ export function ProformaForm({
   const [numero, setNumero] = useState(initial?.numero ?? numeroSugerido);
   const [fecha, setFecha] = useState(initial?.fecha ?? todayIso());
   const [validezDias, setValidezDias] = useState(initial?.validezDias?.toString() ?? '15');
+  const [tipo, setTipo] = useState<TipoProforma>(initial?.tipo ?? 'productos');
+  const esServicio = tipo === 'servicio';
   const [clienteNombre, setClienteNombre] = useState(initial?.clienteNombre ?? '');
   const [clienteRuc, setClienteRuc] = useState(initial?.clienteRuc ?? '');
   const [clienteContacto, setClienteContacto] = useState(initial?.clienteContacto ?? '');
@@ -51,6 +53,7 @@ export function ProformaForm({
       numero: numero.trim(),
       fecha,
       validezDias: parseInt(validezDias, 10) || 0,
+      tipo,
       clienteNombre: clienteNombre.trim(),
       clienteRuc: clienteRuc.trim(),
       clienteContacto: clienteContacto.trim(),
@@ -92,6 +95,36 @@ export function ProformaForm({
               className={inputClase}
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de proforma</label>
+          <div className="flex gap-2">
+            {(
+              [
+                ['productos', '📦 Productos / bienes'],
+                ['servicio', '⏱️ Servicio por horas'],
+              ] as const
+            ).map(([valor, etiqueta]) => (
+              <button
+                type="button"
+                key={valor}
+                onClick={() => setTipo(valor)}
+                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition ${
+                  tipo === valor
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+          {esServicio && (
+            <p className="text-xs text-slate-400 mt-1">
+              Cada ítem se cobra por horas trabajadas × tarifa por hora, en vez de cantidad × precio unitario.
+            </p>
+          )}
         </div>
 
         <div className="border-t border-slate-100 pt-4">
@@ -150,24 +183,28 @@ export function ProformaForm({
                 <textarea
                   value={item.descripcion}
                   onChange={(e) => actualizarItem(item.id, { descripcion: e.target.value })}
-                  placeholder="Descripción (podés usar varias líneas)"
+                  placeholder={
+                    esServicio
+                      ? 'Qué se va a hacer (podés usar varias líneas)'
+                      : 'Descripción (podés usar varias líneas)'
+                  }
                   rows={2}
                   className={`${inputClase} w-full resize-y`}
                 />
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <label className="flex items-center gap-1.5 text-xs text-slate-500">
-                    Cant.
+                    {esServicio ? 'Horas' : 'Cant.'}
                     <input
                       type="number"
                       min="0"
-                      step="1"
+                      step={esServicio ? '0.5' : '1'}
                       value={item.cantidad}
                       onChange={(e) => actualizarItem(item.id, { cantidad: parseFloat(e.target.value) || 0 })}
                       className={`${inputClase} w-16`}
                     />
                   </label>
                   <label className="flex items-center gap-1.5 text-xs text-slate-500">
-                    P. unitario
+                    {esServicio ? 'Tarifa/hora' : 'P. unitario'}
                     <input
                       type="number"
                       min="0"
@@ -192,8 +229,13 @@ export function ProformaForm({
               </div>
             ))}
           </div>
-          <div className="flex justify-end mt-2 text-sm font-semibold text-slate-800">
-            Total: {formatMonto(totalProforma(items))}
+          <div className="flex justify-end items-center gap-3 mt-2 text-sm">
+            {esServicio && (
+              <span className="text-slate-500">
+                Total horas: {items.reduce((sum, it) => sum + it.cantidad, 0)}
+              </span>
+            )}
+            <span className="font-semibold text-slate-800">Total: {formatMonto(totalProforma(items))}</span>
           </div>
         </div>
 

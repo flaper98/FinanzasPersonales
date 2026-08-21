@@ -93,7 +93,15 @@ export function ProformasPage() {
             <tbody className="divide-y divide-slate-100">
               {proformas.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-800">{p.numero}</td>
+                  <td className="px-4 py-3 font-medium text-slate-800">
+                    {p.numero}
+                    <span
+                      className="ml-2 text-xs font-normal text-slate-400"
+                      title={p.tipo === 'servicio' ? 'Servicio por horas' : 'Productos / bienes'}
+                    >
+                      {p.tipo === 'servicio' ? '⏱️' : '📦'}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-slate-600">{p.clienteNombre || '—'}</td>
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatIsoDate(p.fecha)}</td>
                   <td className="px-4 py-3 text-right font-semibold text-slate-700 whitespace-nowrap">

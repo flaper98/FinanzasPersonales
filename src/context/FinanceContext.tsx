@@ -161,7 +161,8 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
     months,
     tarjetasCredito,
     prestamos: state.prestamos ?? [],
-    proformas: state.proformas ?? [],
+    // Proformas guardadas antes de que existiera `tipo` (Productos vs. Servicio por horas) se asumen de tipo "productos".
+    proformas: (state.proformas ?? []).map((p) => ({ ...p, tipo: p.tipo ?? 'productos' })),
     // Merge (no solo `??`) para que datosEmpresa guardado antes de que existiera algún campo nuevo
     // (ej. `firma`) lo complete con su valor por defecto, en vez de quedar `undefined`.
     datosEmpresa: { ...DATOS_EMPRESA_VACIOS, ...state.datosEmpresa },
