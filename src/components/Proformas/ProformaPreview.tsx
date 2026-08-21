@@ -6,6 +6,11 @@ function formatMonto(n: number): string {
   return n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 });
 }
 
+/** Quita caracteres inválidos para nombre de archivo en Windows/Mac/Linux. */
+function nombreArchivoSeguro(texto: string): string {
+  return texto.replace(/[\\/:*?"<>|]/g, '').trim();
+}
+
 /**
  * Vista de la proforma lista para imprimir. El botón "Descargar PDF" abre el
  * diálogo de impresión del navegador (elegir "Guardar como PDF" como
@@ -31,6 +36,27 @@ export function ProformaPreview({
   const hayDatosBanco = datosEmpresa.banco || datosEmpresa.numeroCuenta || datosEmpresa.numeroCci;
   const esServicio = proforma.tipo === 'servicio';
   const totalHoras = proforma.items.reduce((sum, it) => sum + it.cantidad, 0);
+
+  /**
+   * El navegador usa el título de la pestaña como nombre sugerido al
+   * "Guardar como PDF". Lo cambiamos justo antes de imprimir y lo
+   * restauramos al cerrar el diálogo (evento `afterprint`), con un
+   * temporizador de respaldo por si ese evento no llega a dispararse.
+   */
+  function descargarPDF() {
+    const tituloOriginal = document.title;
+    const cliente = proforma.clienteNombre ? `_${proforma.clienteNombre}` : '';
+    document.title = nombreArchivoSeguro(`PROFORMA ${proforma.numero}${cliente}`);
+
+    function restaurarTitulo() {
+      document.title = tituloOriginal;
+      window.removeEventListener('afterprint', restaurarTitulo);
+    }
+    window.addEventListener('afterprint', restaurarTitulo);
+    window.setTimeout(restaurarTitulo, 10000);
+
+    window.print();
+  }
 
   return (
     <div className="fixed inset-0 z-40 bg-slate-900/60 overflow-y-auto print:bg-white print:static">
@@ -62,7 +88,7 @@ export function ProformaPreview({
               Cerrar
             </button>
             <button
-              onClick={() => window.print()}
+              onClick={descargarPDF}
               className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white hover:bg-brand-700"
             >
               Descargar PDF
