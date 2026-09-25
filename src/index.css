@@ -46,4 +46,21 @@ body {
     padding: 12mm;
     box-sizing: border-box;
   }
+  /* La hoja ocupa toda la página A4 (297mm − 2×12mm de padding, con 3mm de
+     holgura para no generar una segunda hoja en blanco); el recuadro de ítems
+     absorbe el espacio sobrante y deja los totales y la firma al pie. Si hay
+     muchos ítems, la hoja simplemente crece a más páginas. */
+  .proforma-sheet {
+    min-height: 270mm;
+  }
+}
+
+/* En pantalla, un mínimo de alto para que el recuadro de ítems no se vea aplastado con pocos ítems. */
+.proforma-items {
+  min-height: 18rem;
+}
+@media print {
+  .proforma-items {
+    min-height: 0;
+  }
 }

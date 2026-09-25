@@ -1,14 +1,59 @@
 import { formatIsoDate } from '../../lib/monthUtils';
 import { totalItemProforma, totalProforma } from '../../lib/calculations';
+import { montoEnLetrasSoles } from '../../lib/text';
 import type { DatosEmpresa, Proforma } from '../../types';
 
 function formatMonto(n: number): string {
   return n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 });
 }
 
+/** Número con 2 decimales y sin símbolo, para las celdas de la tabla ("1,250.00"). */
+function formatNumero(n: number): string {
+  return n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 /** Quita caracteres inválidos para nombre de archivo en Windows/Mac/Linux. */
 function nombreArchivoSeguro(texto: string): string {
   return texto.replace(/[\\/:*?"<>|]/g, '').trim();
+}
+
+/**
+ * Anchos de las columnas fijas de la tabla de ítems (la de descripción ocupa el
+ * resto). Se usan tanto en <colgroup> como para dibujar las líneas verticales
+ * que recorren toda la altura del recuadro, aunque haya pocos ítems.
+ */
+const COL_NUM = '2.75rem';
+const COL_CANT = '4.75rem';
+const COL_PRECIO = '6.75rem';
+const COL_TOTAL = '6.75rem';
+
+const LINEA = 'linear-gradient(#000, #000)';
+const lineasColumnas = {
+  backgroundImage: [LINEA, LINEA, LINEA, LINEA].join(', '),
+  backgroundRepeat: 'no-repeat',
+  backgroundSize: '1px 100%',
+  backgroundPosition: [
+    `${COL_NUM} 0`,
+    `calc(100% - ${COL_TOTAL} - ${COL_PRECIO} - ${COL_CANT}) 0`,
+    `calc(100% - ${COL_TOTAL} - ${COL_PRECIO}) 0`,
+    `calc(100% - ${COL_TOTAL}) 0`,
+  ].join(', '),
+} as const;
+
+/** Lista de pares etiqueta/valor; omite los que no tienen valor. */
+function Campos({ filas }: { filas: [string, string | undefined][] }) {
+  return (
+    <dl className="grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-1 content-start">
+      {filas
+        .filter(([, valor]) => valor)
+        .map(([etiqueta, valor]) => (
+          <div key={etiqueta} className="contents">
+            <dt className="font-bold uppercase text-black">{etiqueta}</dt>
+            <dd className="text-slate-700">{valor}</dd>
+          </div>
+        ))}
+    </dl>
+  );
 }
 
 /**
@@ -95,132 +140,143 @@ export function ProformaPreview({
             </button>
           </div>
 
-          <div className="bg-white rounded-xl shadow-xl print:rounded-none print:shadow-none overflow-hidden border border-slate-200 print:border-0">
-            <div className="bg-brand-600 text-white px-6 py-5 flex items-center justify-between">
-              <div className="text-2xl font-bold tracking-wide">
-                PROFORMA N.° {proforma.numero}
-              </div>
-              <div className="text-right text-sm shrink-0 ml-4">
-                <div className="uppercase text-xs tracking-wide opacity-80">Fecha</div>
-                <div className="font-semibold">{formatIsoDate(proforma.fecha)}</div>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-6 text-sm text-slate-700">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="border border-slate-200 rounded-lg p-3">
-                  <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Remitente</div>
-                  <div className="font-semibold text-slate-800">{datosEmpresa.nombre || 'Tu empresa'}</div>
-                  {datosEmpresa.ruc && <div>RUC: {datosEmpresa.ruc}</div>}
+          <div className="proforma-sheet bg-white rounded-xl shadow-xl print:rounded-none print:shadow-none border border-slate-200 print:border-0 p-8 print:p-0 flex flex-col text-xs text-slate-800">
+            {/* Encabezado: datos del emisor + recuadro con RUC / tipo de documento / número */}
+            <div className="flex items-start justify-between gap-6">
+              <div className="min-w-0">
+                <div className="text-xl font-bold text-black leading-tight">{datosEmpresa.nombre || 'Tu empresa'}</div>
+                <div className="mt-2 space-y-0.5 text-slate-600 leading-snug">
                   {datosEmpresa.direccion && <div>{datosEmpresa.direccion}</div>}
-                  {datosEmpresa.telefono && <div>Tel: {datosEmpresa.telefono}</div>}
-                  {datosEmpresa.celular && <div>Cel: {datosEmpresa.celular}</div>}
+                  {(datosEmpresa.telefono || datosEmpresa.celular) && (
+                    <div>
+                      {[
+                        datosEmpresa.telefono && `Tel: ${datosEmpresa.telefono}`,
+                        datosEmpresa.celular && `Cel: ${datosEmpresa.celular}`,
+                      ]
+                        .filter(Boolean)
+                        .join('  ·  ')}
+                    </div>
+                  )}
                   {datosEmpresa.email && <div>{datosEmpresa.email}</div>}
                 </div>
-                <div className="border border-slate-200 rounded-lg p-3">
-                  <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Destinatario</div>
-                  <div className="font-semibold text-slate-800">{proforma.clienteNombre || '—'}</div>
-                  {proforma.clienteRuc && <div>RUC: {proforma.clienteRuc}</div>}
-                  {proforma.clienteContacto && <div>Dirigido a: {proforma.clienteContacto}</div>}
-                  {proforma.clienteCargo && <div>Cargo: {proforma.clienteCargo}</div>}
-                </div>
               </div>
-
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-xs uppercase text-slate-500">
-                    <th className="text-center px-3 py-2 border border-slate-200 w-12">Ítem</th>
-                    <th className="text-center px-3 py-2 border border-slate-200 w-16">{esServicio ? 'Horas' : 'Cant.'}</th>
-                    <th className="text-left px-3 py-2 border border-slate-200">Descripción</th>
-                    <th className="text-right px-3 py-2 border border-slate-200 w-28">
-                      {esServicio ? 'Tarifa/Hora' : 'P. Unitario'}
-                    </th>
-                    <th className="text-right px-3 py-2 border border-slate-200 w-28">P. Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {proforma.items.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td className="px-3 py-2 border border-slate-200 text-center">
-                        {(idx + 1).toString().padStart(2, '0')}
-                      </td>
-                      <td className="px-3 py-2 border border-slate-200 text-center">{item.cantidad}</td>
-                      <td className="px-3 py-2 border border-slate-200 whitespace-pre-line">{item.descripcion}</td>
-                      <td className="px-3 py-2 border border-slate-200 text-right">
-                        {formatMonto(item.precioUnitario)}
-                      </td>
-                      <td className="px-3 py-2 border border-slate-200 text-right font-medium">
-                        {formatMonto(totalItemProforma(item))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  {esServicio && (
-                    <tr>
-                      <td colSpan={4} className="px-3 py-2 border border-slate-200 text-right text-slate-500">
-                        Total horas
-                      </td>
-                      <td className="px-3 py-2 border border-slate-200 text-right text-slate-500">{totalHoras}</td>
-                    </tr>
-                  )}
-                  <tr>
-                    <td colSpan={4} className="px-3 py-2 border border-slate-200 text-right font-semibold">
-                      Total
-                    </td>
-                    <td className="px-3 py-2 border border-slate-200 text-right font-bold">{formatMonto(total)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-
-              {proforma.nota && (
-                <div>
-                  <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Notas</div>
-                  <p className="whitespace-pre-line">{proforma.nota}</p>
-                </div>
-              )}
-
-              {hayDatosBanco && (
-                <div className="border-t border-slate-100 pt-4">
-                  <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Forma de pago</div>
-                  {datosEmpresa.banco && <p className="mb-2">Cuenta corriente del banco {datosEmpresa.banco}</p>}
-                  <div className="border border-slate-200 rounded-lg overflow-hidden text-sm">
-                    <div className="flex">
-                      <div className="bg-slate-50 px-3 py-1.5 font-medium w-48 shrink-0">Titular de la cuenta</div>
-                      <div className="px-3 py-1.5">{datosEmpresa.nombre}</div>
-                    </div>
-                    {datosEmpresa.numeroCuenta && (
-                      <div className="flex border-t border-slate-200">
-                        <div className="bg-slate-50 px-3 py-1.5 font-medium w-48 shrink-0">Nro. de cuenta</div>
-                        <div className="px-3 py-1.5">{datosEmpresa.numeroCuenta}</div>
-                      </div>
-                    )}
-                    {datosEmpresa.numeroCci && (
-                      <div className="flex border-t border-slate-200">
-                        <div className="bg-slate-50 px-3 py-1.5 font-medium w-48 shrink-0">Nro. CCI</div>
-                        <div className="px-3 py-1.5">{datosEmpresa.numeroCci}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
+              <div className="w-64 shrink-0 border border-black text-center">
+                {datosEmpresa.ruc && <div className="py-2 text-base tracking-wide text-black">RUC {datosEmpresa.ruc}</div>}
+                <div className="bg-neutral-200 py-2.5 text-lg font-bold tracking-widest text-black">PROFORMA</div>
+                <div className="py-2 text-base tracking-wide text-black">N.° {proforma.numero}</div>
+              </div>
             </div>
 
-            <div className="border-t border-slate-200 px-6 py-4 text-center">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Proforma válida por {proforma.validezDias} días hábiles
-              </p>
-              {datosEmpresa.firma && (
-                <div className="inline-block border border-slate-200 rounded px-3 py-1.5 mt-3">
-                  <img src={datosEmpresa.firma} alt="Firma" className="h-12 object-contain" />
+            {/* Cliente y datos del documento */}
+            <div className="mt-6 grid grid-cols-[1fr_auto] gap-x-10">
+              <Campos
+                filas={[
+                  ['Cliente', proforma.clienteNombre || '—'],
+                  ['RUC', proforma.clienteRuc],
+                  ['Atención', proforma.clienteContacto],
+                  ['Cargo', proforma.clienteCargo],
+                ]}
+              />
+              <Campos
+                filas={[
+                  ['Fecha emisión', formatIsoDate(proforma.fecha)],
+                  ['Validez', `${proforma.validezDias} días hábiles`],
+                  ['Moneda', 'SOLES'],
+                ]}
+              />
+            </div>
+
+            {/* Ítems: el recuadro crece para ocupar la página y los totales quedan al pie */}
+            <div className="proforma-items mt-4 grow flex flex-col border border-black">
+              <div className="grow" style={lineasColumnas}>
+                <table className="w-full table-fixed border-collapse">
+                  <colgroup>
+                    <col style={{ width: COL_NUM }} />
+                    <col />
+                    <col style={{ width: COL_CANT }} />
+                    <col style={{ width: COL_PRECIO }} />
+                    <col style={{ width: COL_TOTAL }} />
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-black text-white text-[11px] uppercase tracking-wide">
+                      <th className="px-2 py-1.5 text-center font-bold">N.°</th>
+                      <th className="px-3 py-1.5 text-left font-bold">Descripción</th>
+                      <th className="px-2 py-1.5 text-center font-bold">{esServicio ? 'Horas' : 'Cant.'}</th>
+                      <th className="px-3 py-1.5 text-right font-bold">{esServicio ? 'Tarifa/Hora' : 'P. Unit.'}</th>
+                      <th className="px-3 py-1.5 text-right font-bold">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {proforma.items.map((item, idx) => (
+                      <tr key={item.id} className="align-top break-inside-avoid">
+                        <td className="px-2 py-1.5 text-center text-slate-600">{(idx + 1).toString().padStart(2, '0')}</td>
+                        <td className="px-3 py-1.5 whitespace-pre-line break-words">{item.descripcion}</td>
+                        <td className="px-2 py-1.5 text-center">{item.cantidad}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{formatNumero(item.precioUnitario)}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums font-medium">
+                          {formatNumero(totalItemProforma(item))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex border-t border-black break-inside-avoid">
+                <div className="flex-1 px-3 py-2.5 flex items-center tracking-wide text-black">
+                  {montoEnLetrasSoles(total)}
                 </div>
-              )}
-              <p className="text-sm font-semibold text-slate-800 mt-1">{datosEmpresa.nombre}</p>
-              {datosEmpresa.ruc && <p className="text-xs text-slate-500">RUC: {datosEmpresa.ruc}</p>}
-              {datosEmpresa.telefono && <p className="text-xs text-slate-500">{datosEmpresa.telefono}</p>}
-              {datosEmpresa.celular && <p className="text-xs text-slate-500">{datosEmpresa.celular}</p>}
-              {datosEmpresa.email && <p className="text-xs text-slate-500">{datosEmpresa.email}</p>}
+                <div
+                  className="border-l border-black px-3 py-2 space-y-1"
+                  style={{ width: `calc(${COL_PRECIO} + ${COL_TOTAL})` }}
+                >
+                  {esServicio && (
+                    <div className="flex justify-between text-slate-600">
+                      <span className="font-bold uppercase">Total horas</span>
+                      <span className="tabular-nums">{totalHoras}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-baseline text-black">
+                    <span className="font-bold uppercase">Total</span>
+                    <span className="text-base font-bold tabular-nums">{formatMonto(total)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Notas / forma de pago y firma */}
+            <div className="mt-6 grid grid-cols-[1fr_15rem] gap-x-10 break-inside-avoid">
+              <div className="space-y-4">
+                {proforma.nota && (
+                  <div>
+                    <div className="font-bold uppercase text-black mb-1">Notas</div>
+                    <p className="whitespace-pre-line text-slate-700">{proforma.nota}</p>
+                  </div>
+                )}
+                {hayDatosBanco && (
+                  <div>
+                    <div className="font-bold uppercase text-black mb-1">Forma de pago</div>
+                    <Campos
+                      filas={[
+                        ['Banco', datosEmpresa.banco],
+                        ['Titular', datosEmpresa.nombre],
+                        ['Nro. cuenta', datosEmpresa.numeroCuenta],
+                        ['Nro. CCI', datosEmpresa.numeroCci],
+                      ]}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col justify-end text-center">
+                {datosEmpresa.firma && (
+                  <img src={datosEmpresa.firma} alt="Firma" className="h-16 mx-auto mb-1 object-contain" />
+                )}
+                <div className="border-t border-black pt-1.5">
+                  <div className="font-bold text-black">{datosEmpresa.nombre}</div>
+                  {datosEmpresa.ruc && <div className="text-slate-600">RUC {datosEmpresa.ruc}</div>}
+                </div>
+              </div>
             </div>
           </div>
         </div>
