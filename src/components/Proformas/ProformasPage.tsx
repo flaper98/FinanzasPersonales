@@ -28,6 +28,15 @@ export function ProformasPage() {
 
   const proformas = [...state.proformas].sort((a, b) => b.fecha.localeCompare(a.fecha));
   const empresaIncompleta = !state.datosEmpresa.nombre;
+  // Una proforma nueva arranca con el diseño y las secciones de la última que creaste.
+  const ultima = state.proformas[state.proformas.length - 1];
+  const plantilla = ultima ? { diseno: ultima.diseno, opciones: ultima.opciones } : undefined;
+  const { firma, banco, numeroCuenta, numeroCci } = state.datosEmpresa;
+  const avisos = {
+    firma: firma ? undefined : 'Sin imagen de firma: saldrá solo la línea para firmar.',
+    datosBancarios:
+      banco || numeroCuenta || numeroCci ? undefined : 'No cargaste datos bancarios en "Datos de mi empresa".',
+  };
 
   function handleAgregarAIngresos(p: Proforma) {
     agregarIngresoDesdeProforma(p);
@@ -143,6 +152,8 @@ export function ProformasPage() {
       {creando && (
         <ProformaForm
           numeroSugerido={siguienteNumeroProforma(state.proformas)}
+          plantilla={plantilla}
+          avisos={avisos}
           onSubmit={(input) => agregarProforma(input)}
           onClose={() => setCreando(false)}
         />
@@ -151,6 +162,7 @@ export function ProformasPage() {
         <ProformaForm
           initial={editando}
           numeroSugerido={editando.numero}
+          avisos={avisos}
           onSubmit={(input) => actualizarProforma(editando.id, input)}
           onClose={() => setEditando(null)}
         />

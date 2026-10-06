@@ -34,6 +34,7 @@ import {
 } from '../lib/calculations';
 import { currentMonthKey, monthKeyOfIso, nextMonthKey, sortedMonthKeys, todayIso } from '../lib/monthUtils';
 import { normalizarDetalle } from '../lib/text';
+import { OPCIONES_PROFORMA_DEFAULT } from '../lib/proformaDiseno';
 
 interface FinanceContextValue {
   state: FinanceState;
@@ -161,8 +162,14 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
     months,
     tarjetasCredito,
     prestamos: state.prestamos ?? [],
-    // Proformas guardadas antes de que existiera `tipo` (Productos vs. Servicio por horas) se asumen de tipo "productos".
-    proformas: (state.proformas ?? []).map((p) => ({ ...p, tipo: p.tipo ?? 'productos' })),
+    // Proformas guardadas antes de que existiera `tipo` (Productos vs. Servicio por horas) se asumen de tipo "productos",
+    // y las anteriores a `diseno`/`opciones` salen con el diseño clásico y todas las secciones visibles (como se veían).
+    proformas: (state.proformas ?? []).map((p) => ({
+      ...p,
+      tipo: p.tipo ?? 'productos',
+      diseno: p.diseno ?? 'clasico',
+      opciones: { ...OPCIONES_PROFORMA_DEFAULT, ...p.opciones },
+    })),
     // Merge (no solo `??`) para que datosEmpresa guardado antes de que existiera algún campo nuevo
     // (ej. `firma`) lo complete con su valor por defecto, en vez de quedar `undefined`.
     datosEmpresa: { ...DATOS_EMPRESA_VACIOS, ...state.datosEmpresa },

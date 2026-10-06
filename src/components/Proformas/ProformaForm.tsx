@@ -1,15 +1,63 @@
 import { useState } from 'react';
-import type { ItemProforma, NewProformaInput, Proforma, TipoProforma } from '../../types';
+import type {
+  DisenoProforma,
+  ItemProforma,
+  NewProformaInput,
+  OpcionesProforma,
+  Proforma,
+  TipoProforma,
+} from '../../types';
 import { Modal } from '../common/Modal';
 import { totalItemProforma, totalProforma } from '../../lib/calculations';
 import { newId } from '../../lib/id';
 import { todayIso } from '../../lib/monthUtils';
+import { DISENOS_PROFORMA, OPCIONES_PROFORMA_DEFAULT, OPCIONES_PROFORMA_ETIQUETAS } from '../../lib/proformaDiseno';
 
 const inputClase =
   'w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
 
 function formatMonto(n: number): string {
   return n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 });
+}
+
+/** Boceto en miniatura de cada diseño, para elegirlo a simple vista. */
+function MiniaturaDiseno({ diseno }: { diseno: DisenoProforma }) {
+  if (diseno === 'moderno') {
+    return (
+      <div className="h-14 rounded bg-white border border-slate-200 p-1.5 flex flex-col gap-1">
+        <div className="h-1 rounded-full bg-brand-600" />
+        <div className="flex justify-between">
+          <div className="h-1.5 w-8 rounded bg-brand-700" />
+          <div className="h-2.5 w-6 rounded-sm bg-brand-600" />
+        </div>
+        <div className="grow rounded-sm border border-slate-300 overflow-hidden">
+          <div className="h-1.5 bg-brand-600" />
+        </div>
+      </div>
+    );
+  }
+  if (diseno === 'minimalista') {
+    return (
+      <div className="h-14 rounded bg-white border border-slate-200 p-1.5 flex flex-col gap-1">
+        <div className="flex justify-between">
+          <div className="h-1.5 w-8 rounded bg-slate-400" />
+          <div className="h-2.5 w-6 border-l-2 border-slate-800" />
+        </div>
+        <div className="grow border-y border-slate-300 mt-1" />
+      </div>
+    );
+  }
+  return (
+    <div className="h-14 rounded bg-white border border-slate-200 p-1.5 flex flex-col gap-1">
+      <div className="flex justify-between">
+        <div className="h-1.5 w-8 bg-black" />
+        <div className="h-2.5 w-6 border border-black bg-neutral-200" />
+      </div>
+      <div className="grow border border-black">
+        <div className="h-1.5 bg-black" />
+      </div>
+    </div>
+  );
 }
 
 function itemVacio(): ItemProforma {
@@ -19,11 +67,17 @@ function itemVacio(): ItemProforma {
 export function ProformaForm({
   initial,
   numeroSugerido,
+  plantilla,
+  avisos,
   onSubmit,
   onClose,
 }: {
   initial?: Proforma;
   numeroSugerido: string;
+  /** Diseño y opciones con que arranca una proforma nueva (ej. los de la última creada). */
+  plantilla?: { diseno: DisenoProforma; opciones: OpcionesProforma };
+  /** Aviso junto a un check cuyo contenido no está cargado en "Datos de mi empresa" (ej. firma sin imagen). */
+  avisos?: Partial<Record<keyof OpcionesProforma, string>>;
   onSubmit: (input: NewProformaInput) => void;
   onClose: () => void;
 }) {
@@ -38,6 +92,10 @@ export function ProformaForm({
   const [clienteCargo, setClienteCargo] = useState(initial?.clienteCargo ?? '');
   const [items, setItems] = useState<ItemProforma[]>(initial?.items?.length ? initial.items : [itemVacio()]);
   const [nota, setNota] = useState(initial?.nota ?? '');
+  const [diseno, setDiseno] = useState<DisenoProforma>(initial?.diseno ?? plantilla?.diseno ?? 'clasico');
+  const [opciones, setOpciones] = useState<OpcionesProforma>(
+    initial?.opciones ?? plantilla?.opciones ?? OPCIONES_PROFORMA_DEFAULT,
+  );
 
   function actualizarItem(id: string, cambios: Partial<ItemProforma>) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...cambios } : it)));
@@ -62,6 +120,8 @@ export function ProformaForm({
         .filter((it) => it.descripcion.trim() !== '')
         .map((it) => ({ ...it, descripcion: it.descripcion.trim() })),
       nota: nota.trim(),
+      diseno,
+      opciones,
     });
     onClose();
   }
@@ -248,6 +308,48 @@ export function ProformaForm({
             placeholder="Condiciones especiales, tiempo de entrega, etc."
             className={`${inputClase} resize-y`}
           />
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-700 mb-2">Diseño del PDF</p>
+          <div className="grid grid-cols-3 gap-2">
+            {DISENOS_PROFORMA.map((d) => (
+              <button
+                type="button"
+                key={d.valor}
+                onClick={() => setDiseno(d.valor)}
+                className={`text-left px-3 py-2 rounded-lg border transition ${
+                  diseno === d.valor
+                    ? 'border-brand-600 ring-2 ring-brand-500 bg-brand-50'
+                    : 'border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <MiniaturaDiseno diseno={d.valor} />
+                <div className="text-sm font-medium text-slate-800 mt-2">{d.etiqueta}</div>
+                <div className="text-xs text-slate-500">{d.descripcion}</div>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-sm font-medium text-slate-700 mt-4 mb-2">Qué incluir en la proforma</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            {OPCIONES_PROFORMA_ETIQUETAS.map(([clave, etiqueta]) => (
+              <label key={clave} className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={opciones[clave]}
+                  onChange={(e) => setOpciones((prev) => ({ ...prev, [clave]: e.target.checked }))}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span>
+                  {etiqueta}
+                  {opciones[clave] && avisos?.[clave] && (
+                    <span className="block text-xs text-amber-600">{avisos[clave]}</span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">

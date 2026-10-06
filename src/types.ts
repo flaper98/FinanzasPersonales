@@ -124,6 +124,26 @@ export interface ItemProforma {
   precioUnitario: number;
 }
 
+/** Estilo visual del PDF de la proforma. */
+export type DisenoProforma = 'clasico' | 'moderno' | 'minimalista';
+
+/** Qué secciones se incluyen en el PDF de la proforma (cada una con su check en el formulario). */
+export interface OpcionesProforma {
+  /** Dirección, teléfonos y email del emisor bajo su nombre. */
+  contactoEmisor: boolean;
+  /** "Atención" y "Cargo" del cliente. */
+  atencionCliente: boolean;
+  /** Validez en días hábiles. */
+  validez: boolean;
+  /** Total escrito en letras ("SON: MIL ... SOLES"). */
+  montoEnLetras: boolean;
+  notas: boolean;
+  /** "Forma de pago" con banco, cuenta y CCI. */
+  datosBancarios: boolean;
+  /** Bloque de firma al pie (imagen si hay, línea, nombre y RUC). */
+  firma: boolean;
+}
+
 export interface Proforma {
   id: string;
   /** Ej. "040-2026". */
@@ -141,6 +161,8 @@ export interface Proforma {
   items: ItemProforma[];
   /** Notas adicionales, ej. condiciones especiales (la forma de pago sale de DatosEmpresa). */
   nota: string;
+  diseno: DisenoProforma;
+  opciones: OpcionesProforma;
 }
 
 export type NewProformaInput = Omit<Proforma, 'id'>;
