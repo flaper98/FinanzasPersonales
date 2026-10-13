@@ -163,17 +163,19 @@ const COL_PRECIO = '6.5rem';
 const COL_TOTAL = '6.75rem';
 
 /** Líneas verticales entre columnas que recorren toda la altura del recuadro aunque haya pocos ítems. */
-const lineasColumnas: CSSProperties = {
-  backgroundImage: Array(4).fill('linear-gradient(#000, #000)').join(', '),
-  backgroundRepeat: 'no-repeat',
-  backgroundSize: '1px 100%',
-  backgroundPosition: [
-    `${COL_NUM} 0`,
-    `calc(100% - ${COL_TOTAL} - ${COL_PRECIO} - ${COL_CANT}) 0`,
-    `calc(100% - ${COL_TOTAL} - ${COL_PRECIO}) 0`,
-    `calc(100% - ${COL_TOTAL}) 0`,
-  ].join(', '),
-};
+function lineasColumnas(color: string): CSSProperties {
+  return {
+    backgroundImage: Array(4).fill(`linear-gradient(${color}, ${color})`).join(', '),
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: '1px 100%',
+    backgroundPosition: [
+      `${COL_NUM} 0`,
+      `calc(100% - ${COL_TOTAL} - ${COL_PRECIO} - ${COL_CANT}) 0`,
+      `calc(100% - ${COL_TOTAL} - ${COL_PRECIO}) 0`,
+      `calc(100% - ${COL_TOTAL}) 0`,
+    ].join(', '),
+  };
+}
 
 function Clasico({ proforma, empresa, d }: { proforma: Proforma; empresa: DatosEmpresa; d: Datos }) {
   const etiqueta = 'font-bold uppercase text-black';
@@ -222,7 +224,7 @@ function Clasico({ proforma, empresa, d }: { proforma: Proforma; empresa: DatosE
 
       {/* El recuadro de ítems crece para ocupar la hoja y deja los totales al pie. */}
       <section className="proforma-items mt-4 grow flex flex-col border border-black">
-        <div className="grow" style={lineasColumnas}>
+        <div className="grow" style={lineasColumnas('#000')}>
           <table className="w-full table-fixed border-collapse">
             <colgroup>
               <col style={{ width: COL_NUM }} />
@@ -361,61 +363,65 @@ function Moderno({ proforma, empresa, d }: { proforma: Proforma; empresa: DatosE
 
       {d.introduccion && <TextoRico html={d.introduccion} className="mt-6 text-slate-700 leading-relaxed" />}
 
-      <table className="mt-6 w-full border-separate border-spacing-0">
-        <thead>
-          <tr className="text-[9.5px] uppercase tracking-[0.12em] text-white">
-            <th className="w-12 whitespace-nowrap bg-[var(--ac)] rounded-l-lg px-2 py-2.5 text-center font-semibold">N.°</th>
-            <th className="bg-[var(--ac)] px-3 py-2.5 text-left font-semibold">Descripción</th>
-            <th className="w-16 bg-[var(--ac)] px-3 py-2.5 text-center font-semibold">{d.colCantidad}</th>
-            <th className="w-24 bg-[var(--ac)] px-3 py-2.5 text-right font-semibold">{d.colPrecio}</th>
-            <th className="w-28 bg-[var(--ac)] rounded-r-lg px-3 py-2.5 text-right font-semibold">Importe</th>
-          </tr>
-        </thead>
-        <tbody>
-          {proforma.items.map((item, idx) => (
-            <tr key={item.id} className="align-top break-inside-avoid">
-              <td className="border-b border-slate-200 px-3 py-3 text-center font-semibold text-slate-400 tabular-nums">
-                {String(idx + 1).padStart(2, '0')}
-              </td>
-              <td className="border-b border-slate-200 px-3 py-3">
-                <Descripcion item={item} />
-              </td>
-              <td className="border-b border-slate-200 px-3 py-3 text-center tabular-nums">{item.cantidad}</td>
-              <td className="border-b border-slate-200 px-3 py-3 text-right tabular-nums text-slate-600">
-                {formatNumero(item.precioUnitario)}
-              </td>
-              <td className="border-b border-slate-200 px-3 py-3 text-right tabular-nums font-semibold text-slate-900">
-                {formatNumero(totalItemProforma(item))}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <section className="mt-5 flex items-start justify-between gap-8 break-inside-avoid">
-        <div className="pt-2 text-[10.5px] tracking-wide text-slate-500">
-          {d.letras && (
-            <>
-              <span className={etiqueta}>Importe en letras</span>
-              <div className="mt-1 font-medium text-slate-700">{d.letras}</div>
-            </>
-          )}
+      {/* Como antes: el recuadro de ítems crece hasta el pie de la hoja, con líneas de columna y el total adentro. */}
+      <section className="proforma-items mt-6 grow flex flex-col rounded-lg border border-slate-300 overflow-hidden">
+        <div className="grow" style={lineasColumnas('#cbd5e1')}>
+          <table className="w-full table-fixed border-collapse">
+            <colgroup>
+              <col style={{ width: COL_NUM }} />
+              <col />
+              <col style={{ width: COL_CANT }} />
+              <col style={{ width: COL_PRECIO }} />
+              <col style={{ width: COL_TOTAL }} />
+            </colgroup>
+            <thead>
+              <tr className="bg-[var(--ac)] text-white text-[10px] uppercase tracking-wider">
+                <th className="px-2 py-2 text-center font-bold">N.°</th>
+                <th className="px-3 py-2 text-left font-bold">Descripción</th>
+                <th className="px-2 py-2 text-center font-bold">{d.colCantidad}</th>
+                <th className="px-3 py-2 text-right font-bold">{d.colPrecio}</th>
+                <th className="px-3 py-2 text-right font-bold">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {proforma.items.map((item, idx) => (
+                <tr key={item.id} className="align-top break-inside-avoid">
+                  <td className="px-2 py-2.5 text-center text-slate-500 tabular-nums">{String(idx + 1).padStart(2, '0')}</td>
+                  <td className="px-3 py-2.5 break-words">
+                    <Descripcion item={item} />
+                  </td>
+                  <td className="px-2 py-2.5 text-center tabular-nums">{item.cantidad}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{formatNumero(item.precioUnitario)}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-slate-900">
+                    {formatNumero(totalItemProforma(item))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="w-64 shrink-0 space-y-2">
-          {d.esServicio && (
-            <div className="flex justify-between px-4 text-slate-600">
-              <span>Total horas</span>
-              <span className="font-semibold tabular-nums">{d.totalHoras}</span>
+
+        <div className="flex border-t border-slate-300 break-inside-avoid">
+          <div className="flex-1 px-3 py-3 flex items-center tracking-wide text-slate-800">{d.letras}</div>
+          <div
+            className="border-l border-slate-300 bg-[var(--ac-suave)] px-3 py-2.5 space-y-1"
+            style={{ width: `calc(${COL_PRECIO} + ${COL_TOTAL})` }}
+          >
+            {d.esServicio && (
+              <div className="flex justify-between text-slate-600">
+                <span className="font-bold uppercase">Total horas</span>
+                <span className="tabular-nums">{d.totalHoras}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-baseline text-slate-900">
+              <span className="font-bold uppercase">Total</span>
+              <span className="text-[16px] font-bold tabular-nums">{formatMonto(d.total)}</span>
             </div>
-          )}
-          <div className="rounded-xl bg-[var(--ac)] px-4 py-3 flex items-center justify-between text-white">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-90">Total</span>
-            <span className="text-[20px] font-bold tabular-nums">{formatMonto(d.total)}</span>
           </div>
         </div>
       </section>
 
-      <div className="grow min-h-8" />
+      <div className="mt-6" />
 
       <Pie
         d={d}
