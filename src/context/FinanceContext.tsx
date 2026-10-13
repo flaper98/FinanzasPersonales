@@ -34,7 +34,8 @@ import {
 } from '../lib/calculations';
 import { currentMonthKey, monthKeyOfIso, nextMonthKey, sortedMonthKeys, todayIso } from '../lib/monthUtils';
 import { normalizarDetalle } from '../lib/text';
-import { OPCIONES_PROFORMA_DEFAULT } from '../lib/proformaDiseno';
+import { COLOR_ACENTO_DEFAULT, OPCIONES_PROFORMA_DEFAULT } from '../lib/proformaDiseno';
+import { textoPlanoAHtml } from '../lib/html';
 
 interface FinanceContextValue {
   state: FinanceState;
@@ -97,6 +98,7 @@ const DATOS_EMPRESA_VACIOS: DatosEmpresa = {
   numeroCuenta: '',
   numeroCci: '',
   firma: '',
+  logo: '',
 };
 
 /**
@@ -168,6 +170,11 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
       ...p,
       tipo: p.tipo ?? 'productos',
       diseno: p.diseno ?? 'clasico',
+      fuente: p.fuente ?? 'inter',
+      colorAcento: p.colorAcento ?? COLOR_ACENTO_DEFAULT,
+      introduccion: p.introduccion ?? '',
+      // Las notas eran texto plano antes del editor con formato.
+      nota: textoPlanoAHtml(p.nota ?? ''),
       opciones: { ...OPCIONES_PROFORMA_DEFAULT, ...p.opciones },
     })),
     // Merge (no solo `??`) para que datosEmpresa guardado antes de que existiera algún campo nuevo

@@ -110,6 +110,8 @@ export interface DatosEmpresa {
   numeroCci: string;
   /** Imagen de tu firma (data URL base64), o '' si no configuraste una. Se muestra arriba de tu nombre en la proforma. */
   firma: string;
+  /** Logo (data URL base64), o '' si no configuraste uno. Va en el encabezado de la proforma. */
+  logo: string;
 }
 
 /** 'productos': ítems por cantidad × precio unitario. 'servicio': ítems por horas × tarifa por hora (mismos campos, reetiquetados). */
@@ -127,16 +129,24 @@ export interface ItemProforma {
 /** Estilo visual del PDF de la proforma. */
 export type DisenoProforma = 'clasico' | 'moderno' | 'minimalista';
 
+/** Tipografía de todo el documento (ver FUENTES_PROFORMA; se cargan desde Google Fonts en index.html). */
+export type FuenteProforma = 'inter' | 'poppins' | 'montserrat' | 'lato' | 'lora' | 'merriweather';
+
 /** Qué secciones se incluyen en el PDF de la proforma (cada una con su check en el formulario). */
 export interface OpcionesProforma {
+  /** Logo de la empresa en el encabezado (si está cargado en "Datos de mi empresa"). */
+  logo: boolean;
   /** Dirección, teléfonos y email del emisor bajo su nombre. */
   contactoEmisor: boolean;
   /** "Atención" y "Cargo" del cliente. */
   atencionCliente: boolean;
   /** Validez en días hábiles. */
   validez: boolean;
+  /** Texto de presentación antes de los ítems. */
+  introduccion: boolean;
   /** Total escrito en letras ("SON: MIL ... SOLES"). */
   montoEnLetras: boolean;
+  /** Términos y condiciones / notas después de los totales. */
   notas: boolean;
   /** "Forma de pago" con banco, cuenta y CCI. */
   datosBancarios: boolean;
@@ -159,9 +169,14 @@ export interface Proforma {
   /** Cargo de esa persona, ej. "Gerente General". */
   clienteCargo: string;
   items: ItemProforma[];
-  /** Notas adicionales, ej. condiciones especiales (la forma de pago sale de DatosEmpresa). */
+  /** Texto de presentación con formato (HTML), ej. "De nuestra consideración: ...". */
+  introduccion: string;
+  /** Términos y condiciones / notas con formato (HTML). La forma de pago sale de DatosEmpresa. */
   nota: string;
   diseno: DisenoProforma;
+  fuente: FuenteProforma;
+  /** Color principal del diseño, en hex (#2563eb). El diseño clásico es siempre blanco y negro. */
+  colorAcento: string;
   opciones: OpcionesProforma;
 }
 

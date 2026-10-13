@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type {
+  DatosEmpresa,
   DisenoProforma,
+  FuenteProforma,
   ItemProforma,
   NewProformaInput,
   OpcionesProforma,
@@ -8,10 +10,23 @@ import type {
   TipoProforma,
 } from '../../types';
 import { Modal } from '../common/Modal';
+import { EditorTexto } from '../common/EditorTexto';
 import { totalItemProforma, totalProforma } from '../../lib/calculations';
 import { newId } from '../../lib/id';
 import { todayIso } from '../../lib/monthUtils';
-import { DISENOS_PROFORMA, OPCIONES_PROFORMA_DEFAULT, OPCIONES_PROFORMA_ETIQUETAS } from '../../lib/proformaDiseno';
+import { htmlVacio, sanitizarHtml } from '../../lib/html';
+import {
+  COLOR_ACENTO_DEFAULT,
+  COLORES_ACENTO,
+  DISENOS_PROFORMA,
+  FUENTES_PROFORMA,
+  INTRODUCCION_DEFAULT,
+  OPCIONES_PROFORMA_DEFAULT,
+  OPCIONES_PROFORMA_ETIQUETAS,
+  fuenteCss,
+  type PlantillaProforma,
+} from '../../lib/proformaDiseno';
+import { ProformaPreview } from './ProformaPreview';
 
 const inputClase =
   'w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
@@ -21,34 +36,40 @@ function formatMonto(n: number): string {
 }
 
 /** Boceto en miniatura de cada diseño, para elegirlo a simple vista. */
-function MiniaturaDiseno({ diseno }: { diseno: DisenoProforma }) {
+function MiniaturaDiseno({ diseno, color }: { diseno: DisenoProforma; color: string }) {
   if (diseno === 'moderno') {
     return (
-      <div className="h-14 rounded bg-white border border-slate-200 p-1.5 flex flex-col gap-1">
-        <div className="h-1 rounded-full bg-brand-600" />
-        <div className="flex justify-between">
-          <div className="h-1.5 w-8 rounded bg-brand-700" />
-          <div className="h-2.5 w-6 rounded-sm bg-brand-600" />
+      <div className="h-16 rounded bg-white border border-slate-200 p-1.5 flex flex-col gap-1">
+        <div className="h-1 rounded-full" style={{ backgroundColor: color }} />
+        <div className="flex justify-between items-start">
+          <div className="h-1.5 w-9 rounded bg-slate-700" />
+          <div className="h-2 w-8 rounded-sm" style={{ backgroundColor: color }} />
         </div>
-        <div className="grow rounded-sm border border-slate-300 overflow-hidden">
-          <div className="h-1.5 bg-brand-600" />
+        <div className="flex gap-1">
+          <div className="h-2.5 grow rounded-sm opacity-20" style={{ backgroundColor: color }} />
+          <div className="h-2.5 w-5 rounded-sm border border-slate-300" />
         </div>
+        <div className="h-1.5 rounded-sm" style={{ backgroundColor: color }} />
+        <div className="ml-auto h-2 w-7 rounded-sm" style={{ backgroundColor: color }} />
       </div>
     );
   }
   if (diseno === 'minimalista') {
     return (
-      <div className="h-14 rounded bg-white border border-slate-200 p-1.5 flex flex-col gap-1">
-        <div className="flex justify-between">
-          <div className="h-1.5 w-8 rounded bg-slate-400" />
-          <div className="h-2.5 w-6 border-l-2 border-slate-800" />
+      <div className="h-16 rounded bg-white border border-slate-200 p-1.5 flex flex-col gap-1">
+        <div className="flex justify-between items-end pb-1 border-b border-slate-200">
+          <div className="h-1.5 w-8 rounded bg-slate-500" />
+          <div className="h-2 w-9 rounded-sm opacity-60" style={{ backgroundColor: color }} />
         </div>
-        <div className="grow border-y border-slate-300 mt-1" />
+        <div className="mt-1 border-b border-slate-800" />
+        <div className="border-b border-slate-200 h-1.5" />
+        <div className="border-b border-slate-200 h-1.5" />
+        <div className="ml-auto w-8 border-t-2" style={{ borderColor: color }} />
       </div>
     );
   }
   return (
-    <div className="h-14 rounded bg-white border border-slate-200 p-1.5 flex flex-col gap-1">
+    <div className="h-16 rounded bg-white border border-slate-200 p-1.5 flex flex-col gap-1">
       <div className="flex justify-between">
         <div className="h-1.5 w-8 bg-black" />
         <div className="h-2.5 w-6 border border-black bg-neutral-200" />
@@ -56,6 +77,43 @@ function MiniaturaDiseno({ diseno }: { diseno: DisenoProforma }) {
       <div className="grow border border-black">
         <div className="h-1.5 bg-black" />
       </div>
+    </div>
+  );
+}
+
+/** Bloque con un check en el título que decide si el texto va en la proforma; si no va, se oculta el editor. */
+function SeccionTexto({
+  titulo,
+  ayuda,
+  activo,
+  onActivo,
+  children,
+}: {
+  titulo: string;
+  ayuda: string;
+  activo: boolean;
+  onActivo: (v: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border-t border-slate-100 pt-4">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={activo}
+          onChange={(e) => onActivo(e.target.checked)}
+          className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+        />
+        <span className="text-sm font-medium text-slate-700">{titulo}</span>
+      </label>
+      {activo ? (
+        <>
+          <p className="text-xs text-slate-400 mt-0.5 mb-2 ml-6">{ayuda}</p>
+          {children}
+        </>
+      ) : (
+        <p className="text-xs text-slate-400 mt-0.5 ml-6">No se incluye en la proforma.</p>
+      )}
     </div>
   );
 }
@@ -69,13 +127,16 @@ export function ProformaForm({
   numeroSugerido,
   plantilla,
   avisos,
+  datosEmpresa,
   onSubmit,
   onClose,
 }: {
   initial?: Proforma;
   numeroSugerido: string;
-  /** Diseño y opciones con que arranca una proforma nueva (ej. los de la última creada). */
-  plantilla?: { diseno: DisenoProforma; opciones: OpcionesProforma };
+  /** Aspecto y textos con que arranca una proforma nueva (los de la última creada). */
+  plantilla?: PlantillaProforma;
+  /** Para la vista previa del borrador. */
+  datosEmpresa: DatosEmpresa;
   /** Aviso junto a un check cuyo contenido no está cargado en "Datos de mi empresa" (ej. firma sin imagen). */
   avisos?: Partial<Record<keyof OpcionesProforma, string>>;
   onSubmit: (input: NewProformaInput) => void;
@@ -91,11 +152,14 @@ export function ProformaForm({
   const [clienteContacto, setClienteContacto] = useState(initial?.clienteContacto ?? '');
   const [clienteCargo, setClienteCargo] = useState(initial?.clienteCargo ?? '');
   const [items, setItems] = useState<ItemProforma[]>(initial?.items?.length ? initial.items : [itemVacio()]);
-  const [nota, setNota] = useState(initial?.nota ?? '');
-  const [diseno, setDiseno] = useState<DisenoProforma>(initial?.diseno ?? plantilla?.diseno ?? 'clasico');
-  const [opciones, setOpciones] = useState<OpcionesProforma>(
-    initial?.opciones ?? plantilla?.opciones ?? OPCIONES_PROFORMA_DEFAULT,
-  );
+  const base = initial ?? plantilla;
+  const [introduccion, setIntroduccion] = useState(base?.introduccion ?? INTRODUCCION_DEFAULT);
+  const [nota, setNota] = useState(base?.nota ?? '');
+  const [diseno, setDiseno] = useState<DisenoProforma>(base?.diseno ?? 'moderno');
+  const [fuente, setFuente] = useState<FuenteProforma>(base?.fuente ?? 'inter');
+  const [colorAcento, setColorAcento] = useState(base?.colorAcento ?? COLOR_ACENTO_DEFAULT);
+  const [opciones, setOpciones] = useState<OpcionesProforma>(base?.opciones ?? OPCIONES_PROFORMA_DEFAULT);
+  const [previsualizando, setPrevisualizando] = useState(false);
 
   function actualizarItem(id: string, cambios: Partial<ItemProforma>) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...cambios } : it)));
@@ -105,9 +169,12 @@ export function ProformaForm({
     setItems((prev) => (prev.length > 1 ? prev.filter((it) => it.id !== id) : prev));
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    onSubmit({
+  function textoLimpio(html: string): string {
+    return htmlVacio(html) ? '' : sanitizarHtml(html);
+  }
+
+  function armarInput(): NewProformaInput {
+    return {
       numero: numero.trim(),
       fecha,
       validezDias: parseInt(validezDias, 10) || 0,
@@ -119,10 +186,18 @@ export function ProformaForm({
       items: items
         .filter((it) => it.descripcion.trim() !== '')
         .map((it) => ({ ...it, descripcion: it.descripcion.trim() })),
-      nota: nota.trim(),
+      introduccion: textoLimpio(introduccion),
+      nota: textoLimpio(nota),
       diseno,
+      fuente,
+      colorAcento,
       opciones,
-    });
+    };
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onSubmit(armarInput());
     onClose();
   }
 
@@ -226,9 +301,26 @@ export function ProformaForm({
           </div>
         </div>
 
+        <SeccionTexto
+          titulo="Texto de presentación"
+          ayuda="Va antes de los ítems. Ej.: saludo y motivo de la proforma."
+          activo={opciones.introduccion}
+          onActivo={(v) => setOpciones((prev) => ({ ...prev, introduccion: v }))}
+        >
+          <EditorTexto
+            valor={introduccion}
+            onChange={setIntroduccion}
+            fuente={fuenteCss(fuente)}
+            placeholder="De nuestra consideración: Por medio de la presente…"
+          />
+        </SeccionTexto>
+
         <div className="border-t border-slate-100 pt-4">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-slate-700">Ítems</p>
+            <div>
+              <p className="text-sm font-medium text-slate-700">Ítems</p>
+              <p className="text-xs text-slate-400">La primera línea sale como título en negrita; las siguientes, como detalle.</p>
+            </div>
             <button
               type="button"
               onClick={() => setItems((prev) => [...prev, itemVacio()])}
@@ -245,10 +337,10 @@ export function ProformaForm({
                   onChange={(e) => actualizarItem(item.id, { descripcion: e.target.value })}
                   placeholder={
                     esServicio
-                      ? 'Qué se va a hacer (podés usar varias líneas)'
-                      : 'Descripción (podés usar varias líneas)'
+                      ? 'Título del servicio\nDetalle de lo que se va a hacer (en las líneas siguientes)'
+                      : 'Nombre del producto\nCaracterísticas o detalle (en las líneas siguientes)'
                   }
-                  rows={2}
+                  rows={3}
                   className={`${inputClase} w-full resize-y`}
                 />
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -299,16 +391,19 @@ export function ProformaForm({
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Notas adicionales (opcional)</label>
-          <textarea
-            value={nota}
-            onChange={(e) => setNota(e.target.value)}
-            rows={2}
-            placeholder="Condiciones especiales, tiempo de entrega, etc."
-            className={`${inputClase} resize-y`}
+        <SeccionTexto
+          titulo="Términos y condiciones"
+          ayuda="Va después del total. Ej.: plazo de entrega, garantía, forma de pago, incluye/no incluye IGV."
+          activo={opciones.notas}
+          onActivo={(v) => setOpciones((prev) => ({ ...prev, notas: v }))}
+        >
+          <EditorTexto
+            valor={nota}
+            onChange={setNota}
+            fuente={fuenteCss(fuente)}
+            placeholder="Ej.: Tiempo de entrega 5 días hábiles. Garantía de 12 meses. Precios incluyen IGV."
           />
-        </div>
+        </SeccionTexto>
 
         <div className="border-t border-slate-100 pt-4">
           <p className="text-sm font-medium text-slate-700 mb-2">Diseño del PDF</p>
@@ -324,16 +419,71 @@ export function ProformaForm({
                     : 'border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                <MiniaturaDiseno diseno={d.valor} />
+                <MiniaturaDiseno diseno={d.valor} color={colorAcento} />
                 <div className="text-sm font-medium text-slate-800 mt-2">{d.etiqueta}</div>
                 <div className="text-xs text-slate-500">{d.descripcion}</div>
               </button>
             ))}
           </div>
 
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-1">Tipo de letra</p>
+              <select
+                value={fuente}
+                onChange={(e) => setFuente(e.target.value as FuenteProforma)}
+                className={inputClase}
+                style={{ fontFamily: fuenteCss(fuente) }}
+              >
+                {FUENTES_PROFORMA.map((f) => (
+                  <option key={f.valor} value={f.valor} style={{ fontFamily: f.css }}>
+                    {f.etiqueta}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500 mt-1 truncate" style={{ fontFamily: fuenteCss(fuente) }}>
+                Proforma N.° {numero || '001-2026'} · S/ 5,500.00
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-1">Color</p>
+              {diseno === 'clasico' ? (
+                <p className="text-xs text-slate-400 mt-2">El diseño clásico es siempre en blanco y negro.</p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {COLORES_ACENTO.map((c) => (
+                    <button
+                      type="button"
+                      key={c.valor}
+                      title={c.etiqueta}
+                      aria-label={c.etiqueta}
+                      onClick={() => setColorAcento(c.valor)}
+                      className={`w-7 h-7 rounded-full transition ${
+                        colorAcento === c.valor ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: c.valor }}
+                    />
+                  ))}
+                  <label
+                    title="Otro color"
+                    className="w-7 h-7 rounded-full border border-dashed border-slate-400 grid place-items-center text-slate-500 text-sm cursor-pointer overflow-hidden relative"
+                  >
+                    +
+                    <input
+                      type="color"
+                      value={colorAcento}
+                      onChange={(e) => setColorAcento(e.target.value)}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+
           <p className="text-sm font-medium text-slate-700 mt-4 mb-2">Qué incluir en la proforma</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-            {OPCIONES_PROFORMA_ETIQUETAS.map(([clave, etiqueta]) => (
+            {OPCIONES_PROFORMA_ETIQUETAS.filter(([clave]) => clave !== 'introduccion' && clave !== 'notas').map(([clave, etiqueta]) => (
               <label key={clave} className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
                 <input
                   type="checkbox"
@@ -361,6 +511,13 @@ export function ProformaForm({
             Cancelar
           </button>
           <button
+            type="button"
+            onClick={() => setPrevisualizando(true)}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
+          >
+            Vista previa
+          </button>
+          <button
             type="submit"
             className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white hover:bg-brand-700"
           >
@@ -368,6 +525,15 @@ export function ProformaForm({
           </button>
         </div>
       </form>
+
+      {previsualizando && (
+        <ProformaPreview
+          proforma={{ ...armarInput(), id: initial?.id ?? 'borrador' }}
+          datosEmpresa={datosEmpresa}
+          textoCerrar="Volver a editar"
+          onClose={() => setPrevisualizando(false)}
+        />
+      )}
     </Modal>
   );
 }

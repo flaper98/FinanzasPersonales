@@ -34,6 +34,64 @@ function redimensionarImagen(file: File, maxAncho: number, maxAlto: number): Pro
   });
 }
 
+/** Subir / cambiar / quitar una imagen (logo o firma), con vista previa. */
+function CampoImagen({
+  titulo,
+  ayuda,
+  nombre,
+  valor,
+  onChange,
+  maxAncho,
+  maxAlto,
+}: {
+  titulo: string;
+  ayuda: string;
+  /** "logo" o "firma", para los textos de los botones. */
+  nombre: string;
+  valor: string;
+  onChange: (dataUrl: string) => void;
+  maxAncho: number;
+  maxAlto: number;
+}) {
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      setError(null);
+      onChange(await redimensionarImagen(file, maxAncho, maxAlto));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cargar la imagen.');
+    }
+  }
+
+  return (
+    <div className="border-t border-slate-100 pt-4">
+      <p className="text-sm font-medium text-slate-700 mb-1">{titulo}</p>
+      <p className="text-xs text-slate-400 mb-2">{ayuda}</p>
+      {valor && (
+        <div className="mb-2 inline-block border border-slate-200 rounded-lg p-2 bg-slate-50">
+          <img src={valor} alt={nombre} className="h-16 object-contain" />
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <label className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 cursor-pointer">
+          {valor ? `Cambiar ${nombre}` : `Subir ${nombre}`}
+          <input type="file" accept="image/*" onChange={handleArchivo} className="hidden" />
+        </label>
+        {valor && (
+          <button type="button" onClick={() => onChange('')} className="text-xs font-medium text-rose-600 hover:underline">
+            Quitar {nombre}
+          </button>
+        )}
+      </div>
+      {error && <p className="text-xs text-rose-600 mt-1">{error}</p>}
+    </div>
+  );
+}
+
 export function DatosEmpresaForm({
   initial,
   onSubmit,
@@ -53,19 +111,7 @@ export function DatosEmpresaForm({
   const [numeroCuenta, setNumeroCuenta] = useState(initial.numeroCuenta);
   const [numeroCci, setNumeroCci] = useState(initial.numeroCci);
   const [firma, setFirma] = useState(initial.firma);
-  const [errorFirma, setErrorFirma] = useState<string | null>(null);
-
-  async function handleFirma(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    try {
-      setErrorFirma(null);
-      setFirma(await redimensionarImagen(file, 480, 200));
-    } catch (err) {
-      setErrorFirma(err instanceof Error ? err.message : 'No se pudo cargar la imagen.');
-    }
-  }
+  const [logo, setLogo] = useState(initial.logo);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,6 +126,7 @@ export function DatosEmpresaForm({
       numeroCuenta: numeroCuenta.trim(),
       numeroCci: numeroCci.trim(),
       firma,
+      logo,
     });
     onClose();
   }
@@ -140,34 +187,25 @@ export function DatosEmpresaForm({
           </div>
         </div>
 
-        <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm font-medium text-slate-700 mb-1">Firma (opcional)</p>
-          <p className="text-xs text-slate-400 mb-2">
-            Se muestra arriba de tu nombre, al final de cada proforma. Subí una foto o escaneo de tu firma, idealmente
-            con fondo blanco o transparente.
-          </p>
-          {firma && (
-            <div className="mb-2 inline-block border border-slate-200 rounded-lg p-2 bg-slate-50">
-              <img src={firma} alt="Tu firma" className="h-16 object-contain" />
-            </div>
-          )}
-          <div className="flex items-center gap-3">
-            <label className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 cursor-pointer">
-              {firma ? 'Cambiar firma' : 'Subir firma'}
-              <input type="file" accept="image/*" onChange={handleFirma} className="hidden" />
-            </label>
-            {firma && (
-              <button
-                type="button"
-                onClick={() => setFirma('')}
-                className="text-xs font-medium text-rose-600 hover:underline"
-              >
-                Quitar firma
-              </button>
-            )}
-          </div>
-          {errorFirma && <p className="text-xs text-rose-600 mt-1">{errorFirma}</p>}
-        </div>
+        <CampoImagen
+          titulo="Logo (opcional)"
+          ayuda="Va en el encabezado de la proforma, junto a tu nombre. Idealmente con fondo blanco o transparente."
+          nombre="logo"
+          valor={logo}
+          onChange={setLogo}
+          maxAncho={600}
+          maxAlto={240}
+        />
+
+        <CampoImagen
+          titulo="Firma (opcional)"
+          ayuda="Se muestra arriba de tu nombre, al final de cada proforma. Sube una foto o escaneo de tu firma, idealmente con fondo blanco o transparente."
+          nombre="firma"
+          valor={firma}
+          onChange={setFirma}
+          maxAncho={480}
+          maxAlto={200}
+        />
 
         <div className="flex justify-end gap-2 pt-2">
           <button

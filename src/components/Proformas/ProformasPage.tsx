@@ -28,11 +28,21 @@ export function ProformasPage() {
 
   const proformas = [...state.proformas].sort((a, b) => b.fecha.localeCompare(a.fecha));
   const empresaIncompleta = !state.datosEmpresa.nombre;
-  // Una proforma nueva arranca con el diseño y las secciones de la última que creaste.
+  // Una proforma nueva arranca con el diseño, las secciones y los textos de la última que creaste.
   const ultima = state.proformas[state.proformas.length - 1];
-  const plantilla = ultima ? { diseno: ultima.diseno, opciones: ultima.opciones } : undefined;
-  const { firma, banco, numeroCuenta, numeroCci } = state.datosEmpresa;
+  const plantilla = ultima
+    ? {
+        diseno: ultima.diseno,
+        fuente: ultima.fuente,
+        colorAcento: ultima.colorAcento,
+        opciones: ultima.opciones,
+        introduccion: ultima.introduccion,
+        nota: ultima.nota,
+      }
+    : undefined;
+  const { firma, logo, banco, numeroCuenta, numeroCci } = state.datosEmpresa;
   const avisos = {
+    logo: logo ? undefined : 'Sube tu logo en "Datos de mi empresa".',
     firma: firma ? undefined : 'Sin imagen de firma: saldrá solo la línea para firmar.',
     datosBancarios:
       banco || numeroCuenta || numeroCci ? undefined : 'No cargaste datos bancarios en "Datos de mi empresa".',
@@ -154,6 +164,7 @@ export function ProformasPage() {
           numeroSugerido={siguienteNumeroProforma(state.proformas)}
           plantilla={plantilla}
           avisos={avisos}
+          datosEmpresa={state.datosEmpresa}
           onSubmit={(input) => agregarProforma(input)}
           onClose={() => setCreando(false)}
         />
@@ -163,6 +174,7 @@ export function ProformasPage() {
           initial={editando}
           numeroSugerido={editando.numero}
           avisos={avisos}
+          datosEmpresa={state.datosEmpresa}
           onSubmit={(input) => actualizarProforma(editando.id, input)}
           onClose={() => setEditando(null)}
         />
