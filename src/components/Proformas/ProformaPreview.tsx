@@ -26,6 +26,7 @@ export function ProformaPreview({
   onClose,
   textoCerrar = 'Cerrar',
   onEditar,
+  onDuplicar,
   onEliminar,
   onAgregarAIngresos,
 }: {
@@ -34,6 +35,7 @@ export function ProformaPreview({
   onClose: () => void;
   textoCerrar?: string;
   onEditar?: () => void;
+  onDuplicar?: () => void;
   onEliminar?: () => void;
   onAgregarAIngresos?: () => void;
 }) {
@@ -74,6 +76,11 @@ export function ProformaPreview({
             {onEditar && (
               <button onClick={onEditar} className={botonSecundario}>
                 Editar
+              </button>
+            )}
+            {onDuplicar && (
+              <button onClick={onDuplicar} className={botonSecundario}>
+                Duplicar
               </button>
             )}
             {onAgregarAIngresos && (

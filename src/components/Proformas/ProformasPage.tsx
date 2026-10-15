@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { siguienteNumeroProforma, totalProforma } from '../../lib/calculations';
-import { formatIsoDate, monthKeyOfIso, monthLabel } from '../../lib/monthUtils';
+import { formatIsoDate, monthKeyOfIso, monthLabel, todayIso } from '../../lib/monthUtils';
+import { newId } from '../../lib/id';
 import type { DatosEmpresa, Proforma } from '../../types';
 import { DATOS_EMPRESA_VACIOS } from '../../context/FinanceContext';
 import { EmpresasModal } from './EmpresasModal';
@@ -25,6 +26,7 @@ export function ProformasPage() {
   } = useFinance();
   const [creando, setCreando] = useState(false);
   const [editando, setEditando] = useState<Proforma | null>(null);
+  const [duplicando, setDuplicando] = useState<Proforma | null>(null);
   const [viendo, setViendo] = useState<Proforma | null>(null);
   const [editandoEmpresa, setEditandoEmpresa] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -49,6 +51,17 @@ export function ProformasPage() {
         nota: ultima.nota,
       }
     : undefined;
+
+  /** Copia de una proforma como punto de partida de una nueva: siguiente número libre y fecha de hoy. */
+  function duplicar(p: Proforma) {
+    setDuplicando({
+      ...p,
+      numero: siguienteNumeroProforma(state.proformas),
+      fecha: todayIso(),
+      items: p.items.map((it) => ({ ...it, id: newId() })),
+    });
+    setViendo(null);
+  }
 
   function handleAgregarAIngresos(p: Proforma) {
     agregarIngresoDesdeProforma(p);
@@ -144,6 +157,12 @@ export function ProformasPage() {
                       Editar
                     </button>
                     <button
+                      onClick={() => duplicar(p)}
+                      className="text-brand-600 hover:underline text-xs font-medium mr-3"
+                    >
+                      Duplicar
+                    </button>
+                    <button
                       onClick={() => handleAgregarAIngresos(p)}
                       className="text-emerald-600 hover:underline text-xs font-medium mr-3"
                     >
@@ -172,6 +191,16 @@ export function ProformasPage() {
           onClose={() => setCreando(false)}
         />
       )}
+      {duplicando && (
+        <ProformaForm
+          initial={duplicando}
+          titulo={`Duplicar proforma ${state.proformas.find((p) => p.id === duplicando.id)?.numero ?? ''}`}
+          numeroSugerido={duplicando.numero}
+          empresas={empresas}
+          onSubmit={(input) => agregarProforma(input)}
+          onClose={() => setDuplicando(null)}
+        />
+      )}
       {editando && (
         <ProformaForm
           initial={editando}
@@ -191,6 +220,7 @@ export function ProformasPage() {
             setViendo(null);
           }}
           onEliminar={() => handleEliminar(viendo)}
+          onDuplicar={() => duplicar(viendo)}
           onAgregarAIngresos={() => handleAgregarAIngresos(viendo)}
         />
       )}

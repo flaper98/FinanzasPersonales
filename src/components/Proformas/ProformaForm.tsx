@@ -130,6 +130,7 @@ export function ProformaForm({
   empresas,
   onSubmit,
   onClose,
+  titulo,
 }: {
   initial?: Proforma;
   numeroSugerido: string;
@@ -139,6 +140,8 @@ export function ProformaForm({
   empresas: DatosEmpresa[];
   onSubmit: (input: NewProformaInput) => void;
   onClose: () => void;
+  /** Título del modal; por defecto "Nueva proforma" o "Editar proforma" según haya `initial`. */
+  titulo?: string;
 }) {
   const [empresaId, setEmpresaId] = useState(() => {
     const preferida = initial?.empresaId ?? plantilla?.empresaId;
@@ -215,7 +218,7 @@ export function ProformaForm({
   }
 
   return (
-    <Modal title={initial ? 'Editar proforma' : 'Nueva proforma'} onClose={onClose} maxWidth="max-w-3xl">
+    <Modal title={titulo ?? (initial ? 'Editar proforma' : 'Nueva proforma')} onClose={onClose} maxWidth="max-w-3xl">
       <form onSubmit={handleSubmit} className="space-y-4">
         {empresas.length > 1 && (
           <div>
