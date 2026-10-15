@@ -18,7 +18,7 @@ export const INTRODUCCION_DEFAULT =
   '<p>De nuestra consideración:</p><p>Por medio de la presente le hacemos llegar nuestra propuesta económica, de acuerdo con lo solicitado.</p>';
 
 /** Lo que una proforma nueva hereda de la anterior: su aspecto y los textos de plantilla. */
-export type PlantillaProforma = Pick<Proforma, 'diseno' | 'fuente' | 'colorAcento' | 'opciones' | 'introduccion' | 'nota'>;
+export type PlantillaProforma = Pick<Proforma, 'empresaId' | 'diseno' | 'fuente' | 'colorAcento' | 'opciones' | 'introduccion' | 'nota'>;
 
 export const DISENOS_PROFORMA: { valor: DisenoProforma; etiqueta: string; descripcion: string }[] = [
   { valor: 'clasico', etiqueta: 'Clásico', descripcion: 'Formato SUNAT, blanco y negro' },

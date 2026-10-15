@@ -27,6 +27,7 @@ import {
   type PlantillaProforma,
 } from '../../lib/proformaDiseno';
 import { ProformaPreview } from './ProformaPreview';
+import { DATOS_EMPRESA_VACIOS } from '../../context/FinanceContext';
 
 const inputClase =
   'w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
@@ -126,22 +127,33 @@ export function ProformaForm({
   initial,
   numeroSugerido,
   plantilla,
-  avisos,
-  datosEmpresa,
+  empresas,
   onSubmit,
   onClose,
 }: {
   initial?: Proforma;
   numeroSugerido: string;
-  /** Aspecto y textos con que arranca una proforma nueva (los de la última creada). */
+  /** Aspecto, textos y empresa con que arranca una proforma nueva (los de la última creada). */
   plantilla?: PlantillaProforma;
-  /** Para la vista previa del borrador. */
-  datosEmpresa: DatosEmpresa;
-  /** Aviso junto a un check cuyo contenido no está cargado en "Datos de mi empresa" (ej. firma sin imagen). */
-  avisos?: Partial<Record<keyof OpcionesProforma, string>>;
+  /** Empresas registradas, para elegir la emisora. */
+  empresas: DatosEmpresa[];
   onSubmit: (input: NewProformaInput) => void;
   onClose: () => void;
 }) {
+  const [empresaId, setEmpresaId] = useState(() => {
+    const preferida = initial?.empresaId ?? plantilla?.empresaId;
+    return empresas.some((e) => e.id === preferida) ? preferida! : (empresas[0]?.id ?? '');
+  });
+  const empresa = empresas.find((e) => e.id === empresaId) ?? empresas[0] ?? DATOS_EMPRESA_VACIOS;
+  // Aviso junto a un check cuyo contenido no está cargado en la empresa elegida (ej. firma sin imagen).
+  const avisos: Partial<Record<keyof OpcionesProforma, string>> = {
+    logo: empresa.logo ? undefined : `${empresa.nombre || 'Esta empresa'} no tiene logo cargado.`,
+    firma: empresa.firma ? undefined : 'Sin imagen de firma: saldrá solo la línea para firmar.',
+    datosBancarios:
+      empresa.banco || empresa.numeroCuenta || empresa.numeroCci
+        ? undefined
+        : `${empresa.nombre || 'Esta empresa'} no tiene datos bancarios.`,
+  };
   const [numero, setNumero] = useState(initial?.numero ?? numeroSugerido);
   const [fecha, setFecha] = useState(initial?.fecha ?? todayIso());
   const [validezDias, setValidezDias] = useState(initial?.validezDias?.toString() ?? '15');
@@ -186,6 +198,7 @@ export function ProformaForm({
       items: items
         .filter((it) => it.descripcion.trim() !== '')
         .map((it) => ({ ...it, descripcion: it.descripcion.trim() })),
+      empresaId,
       introduccion: textoLimpio(introduccion),
       nota: textoLimpio(nota),
       diseno,
@@ -204,6 +217,20 @@ export function ProformaForm({
   return (
     <Modal title={initial ? 'Editar proforma' : 'Nueva proforma'} onClose={onClose} maxWidth="max-w-3xl">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {empresas.length > 1 && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Empresa emisora</label>
+            <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} className={inputClase}>
+              {empresas.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.nombre}
+                  {e.ruc ? ` — RUC ${e.ruc}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Número</label>
@@ -529,7 +556,7 @@ export function ProformaForm({
       {previsualizando && (
         <ProformaPreview
           proforma={{ ...armarInput(), id: initial?.id ?? 'borrador' }}
-          datosEmpresa={datosEmpresa}
+          datosEmpresa={empresa}
           textoCerrar="Volver a editar"
           onClose={() => setPrevisualizando(false)}
         />

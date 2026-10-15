@@ -98,6 +98,7 @@ export type NewPrestamoInput = Omit<Prestamo, 'id'>;
 
 /** Datos de tu empresa/negocio, para completar el encabezado de cada proforma automáticamente. */
 export interface DatosEmpresa {
+  id: string;
   nombre: string;
   ruc: string;
   direccion: string;
@@ -173,6 +174,8 @@ export interface Proforma {
   introduccion: string;
   /** Términos y condiciones / notas con formato (HTML). La forma de pago sale de DatosEmpresa. */
   nota: string;
+  /** Empresa emisora (id de FinanceState.empresas). */
+  empresaId: string;
   diseno: DisenoProforma;
   fuente: FuenteProforma;
   /** Color principal del diseño, en hex (#2563eb). El diseño clásico es siempre blanco y negro. */
@@ -200,7 +203,10 @@ export interface FinanceState {
   tarjetasCredito: TarjetaCredito[];
   prestamos: Prestamo[];
   proformas: Proforma[];
-  datosEmpresa: DatosEmpresa;
+  /** Empresas desde las que emites proformas (cada proforma guarda la suya en `empresaId`). */
+  empresas: DatosEmpresa[];
+  /** @deprecated Solo para leer datos guardados antes de soportar varias empresas; se migra a `empresas`. */
+  datosEmpresa?: DatosEmpresa;
   presupuestosProyecto: PresupuestoProyecto[];
 }
 

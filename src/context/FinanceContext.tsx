@@ -70,7 +70,9 @@ interface FinanceContextValue {
   agregarProforma: (input: NewProformaInput) => void;
   actualizarProforma: (id: string, input: NewProformaInput) => void;
   eliminarProforma: (id: string) => void;
-  actualizarDatosEmpresa: (input: DatosEmpresa) => void;
+  agregarEmpresa: (input: DatosEmpresa) => string;
+  actualizarEmpresa: (id: string, input: DatosEmpresa) => void;
+  eliminarEmpresa: (id: string) => void;
   agregarIngresoDesdeProforma: (proforma: Proforma) => void;
   agregarPresupuestoProyecto: (input: NewPresupuestoProyectoInput) => void;
   actualizarPresupuestoProyecto: (id: string, input: NewPresupuestoProyectoInput) => void;
@@ -87,7 +89,8 @@ interface FinanceContextValue {
 
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
-const DATOS_EMPRESA_VACIOS: DatosEmpresa = {
+export const DATOS_EMPRESA_VACIOS: DatosEmpresa = {
+  id: '',
   nombre: '',
   ruc: '',
   direccion: '',
@@ -160,6 +163,13 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
       }),
     };
   }
+  // Antes había una sola empresa (`datosEmpresa`): se convierte en la primera de la lista, y las proformas
+  // sin `empresaId` quedan asignadas a ella. Merge con DATOS_EMPRESA_VACIOS para completar campos nuevos (ej. `logo`).
+  const empresaLegada = state.datosEmpresa;
+  const empresas: DatosEmpresa[] = (
+    state.empresas ?? (empresaLegada && empresaLegada.nombre ? [{ ...empresaLegada, id: empresaLegada.id || 'empresa-principal' }] : [])
+  ).map((e) => ({ ...DATOS_EMPRESA_VACIOS, ...e }));
+  const empresaPorDefecto = empresas[0]?.id ?? '';
   return {
     months,
     tarjetasCredito,
@@ -176,10 +186,9 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
       // Las notas eran texto plano antes del editor con formato.
       nota: textoPlanoAHtml(p.nota ?? ''),
       opciones: { ...OPCIONES_PROFORMA_DEFAULT, ...p.opciones },
+      empresaId: p.empresaId || empresaPorDefecto,
     })),
-    // Merge (no solo `??`) para que datosEmpresa guardado antes de que existiera algún campo nuevo
-    // (ej. `firma`) lo complete con su valor por defecto, en vez de quedar `undefined`.
-    datosEmpresa: { ...DATOS_EMPRESA_VACIOS, ...state.datosEmpresa },
+    empresas,
     presupuestosProyecto: state.presupuestosProyecto ?? [],
   };
 }
@@ -214,7 +223,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     tarjetasCredito: [],
     prestamos: [],
     proformas: [],
-    datosEmpresa: DATOS_EMPRESA_VACIOS,
+    empresas: [],
     presupuestosProyecto: [],
   });
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey());
@@ -499,8 +508,19 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => ({ ...prev, proformas: prev.proformas.filter((p) => p.id !== id) }));
   }
 
-  function actualizarDatosEmpresa(input: DatosEmpresa) {
-    setState((prev) => ({ ...prev, datosEmpresa: input }));
+  function agregarEmpresa(input: DatosEmpresa): string {
+    const id = newId();
+    setState((prev) => ({ ...prev, empresas: [...prev.empresas, { ...input, id }] }));
+    return id;
+  }
+
+  function actualizarEmpresa(id: string, input: DatosEmpresa) {
+    setState((prev) => ({ ...prev, empresas: prev.empresas.map((e) => (e.id === id ? { ...input, id } : e)) }));
+  }
+
+  /** Las proformas de la empresa eliminada no se borran: se muestran con la primera empresa que quede. */
+  function eliminarEmpresa(id: string) {
+    setState((prev) => ({ ...prev, empresas: prev.empresas.filter((e) => e.id !== id) }));
   }
 
   /**
@@ -678,7 +698,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     agregarProforma,
     actualizarProforma,
     eliminarProforma,
-    actualizarDatosEmpresa,
+    agregarEmpresa,
+    actualizarEmpresa,
+    eliminarEmpresa,
     agregarIngresoDesdeProforma,
     agregarPresupuestoProyecto,
     actualizarPresupuestoProyecto,

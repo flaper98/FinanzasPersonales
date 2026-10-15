@@ -116,6 +116,7 @@ export function DatosEmpresaForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     onSubmit({
+      id: initial.id,
       nombre: nombre.trim(),
       ruc: ruc.trim(),
       direccion: direccion.trim(),
@@ -132,7 +133,7 @@ export function DatosEmpresaForm({
   }
 
   return (
-    <Modal title="Datos de mi empresa" onClose={onClose}>
+    <Modal title={initial.id ? `Editar ${initial.nombre || "empresa"}` : "Nueva empresa"} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="text-xs text-slate-400">
           Aparecen como remitente en el encabezado de cada proforma y en la sección de forma de pago.

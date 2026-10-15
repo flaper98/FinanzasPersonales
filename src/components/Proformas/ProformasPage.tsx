@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { siguienteNumeroProforma, totalProforma } from '../../lib/calculations';
 import { formatIsoDate, monthKeyOfIso, monthLabel } from '../../lib/monthUtils';
-import type { Proforma } from '../../types';
-import { DatosEmpresaForm } from './DatosEmpresaForm';
+import type { DatosEmpresa, Proforma } from '../../types';
+import { DATOS_EMPRESA_VACIOS } from '../../context/FinanceContext';
+import { EmpresasModal } from './EmpresasModal';
 import { ProformaForm } from './ProformaForm';
 import { ProformaPreview } from './ProformaPreview';
 
@@ -17,7 +18,9 @@ export function ProformasPage() {
     agregarProforma,
     actualizarProforma,
     eliminarProforma,
-    actualizarDatosEmpresa,
+    agregarEmpresa,
+    actualizarEmpresa,
+    eliminarEmpresa,
     agregarIngresoDesdeProforma,
   } = useFinance();
   const [creando, setCreando] = useState(false);
@@ -27,11 +30,17 @@ export function ProformasPage() {
   const [mensaje, setMensaje] = useState<string | null>(null);
 
   const proformas = [...state.proformas].sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const empresaIncompleta = !state.datosEmpresa.nombre;
+  const { empresas } = state;
+  const sinEmpresas = empresas.length === 0;
+  /** La empresa emisora de una proforma; si fue eliminada, la primera que quede. */
+  function empresaDe(p: Proforma): DatosEmpresa {
+    return empresas.find((e) => e.id === p.empresaId) ?? empresas[0] ?? DATOS_EMPRESA_VACIOS;
+  }
   // Una proforma nueva arranca con el diseño, las secciones y los textos de la última que creaste.
   const ultima = state.proformas[state.proformas.length - 1];
   const plantilla = ultima
     ? {
+        empresaId: ultima.empresaId,
         diseno: ultima.diseno,
         fuente: ultima.fuente,
         colorAcento: ultima.colorAcento,
@@ -40,13 +49,6 @@ export function ProformasPage() {
         nota: ultima.nota,
       }
     : undefined;
-  const { firma, logo, banco, numeroCuenta, numeroCci } = state.datosEmpresa;
-  const avisos = {
-    logo: logo ? undefined : 'Sube tu logo en "Datos de mi empresa".',
-    firma: firma ? undefined : 'Sin imagen de firma: saldrá solo la línea para firmar.',
-    datosBancarios:
-      banco || numeroCuenta || numeroCci ? undefined : 'No cargaste datos bancarios en "Datos de mi empresa".',
-  };
 
   function handleAgregarAIngresos(p: Proforma) {
     agregarIngresoDesdeProforma(p);
@@ -72,7 +74,7 @@ export function ProformasPage() {
             onClick={() => setEditandoEmpresa(true)}
             className="px-4 py-2 text-sm font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 whitespace-nowrap"
           >
-            Datos de mi empresa
+            Mis empresas{empresas.length > 1 ? ` (${empresas.length})` : ''}
           </button>
           <button
             onClick={() => setCreando(true)}
@@ -87,9 +89,9 @@ export function ProformasPage() {
         <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{mensaje}</p>
       )}
 
-      {empresaIncompleta && (
+      {sinEmpresas && (
         <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-          Todavía no completaste "Datos de mi empresa" — aparecen como remitente en cada proforma.
+          Todavía no registraste ninguna empresa en "Mis empresas" — sus datos aparecen como remitente en cada proforma.
         </p>
       )}
 
@@ -103,6 +105,7 @@ export function ProformasPage() {
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">N.º</th>
+                {empresas.length > 1 && <th className="text-left px-4 py-3 font-medium">Empresa</th>}
                 <th className="text-left px-4 py-3 font-medium">Cliente</th>
                 <th className="text-left px-4 py-3 font-medium">Fecha</th>
                 <th className="text-right px-4 py-3 font-medium">Total</th>
@@ -121,6 +124,7 @@ export function ProformasPage() {
                       {p.tipo === 'servicio' ? '⏱️' : '📦'}
                     </span>
                   </td>
+                  {empresas.length > 1 && <td className="px-4 py-3 text-slate-500">{empresaDe(p).nombre || '—'}</td>}
                   <td className="px-4 py-3 text-slate-600">{p.clienteNombre || '—'}</td>
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatIsoDate(p.fecha)}</td>
                   <td className="px-4 py-3 text-right font-semibold text-slate-700 whitespace-nowrap">
@@ -163,8 +167,7 @@ export function ProformasPage() {
         <ProformaForm
           numeroSugerido={siguienteNumeroProforma(state.proformas)}
           plantilla={plantilla}
-          avisos={avisos}
-          datosEmpresa={state.datosEmpresa}
+          empresas={empresas}
           onSubmit={(input) => agregarProforma(input)}
           onClose={() => setCreando(false)}
         />
@@ -173,8 +176,7 @@ export function ProformasPage() {
         <ProformaForm
           initial={editando}
           numeroSugerido={editando.numero}
-          avisos={avisos}
-          datosEmpresa={state.datosEmpresa}
+          empresas={empresas}
           onSubmit={(input) => actualizarProforma(editando.id, input)}
           onClose={() => setEditando(null)}
         />
@@ -182,7 +184,7 @@ export function ProformasPage() {
       {viendo && (
         <ProformaPreview
           proforma={viendo}
-          datosEmpresa={state.datosEmpresa}
+          datosEmpresa={empresaDe(viendo)}
           onClose={() => setViendo(null)}
           onEditar={() => {
             setEditando(viendo);
@@ -193,9 +195,12 @@ export function ProformasPage() {
         />
       )}
       {editandoEmpresa && (
-        <DatosEmpresaForm
-          initial={state.datosEmpresa}
-          onSubmit={(input) => actualizarDatosEmpresa(input)}
+        <EmpresasModal
+          empresas={empresas}
+          proformas={state.proformas}
+          onAgregar={agregarEmpresa}
+          onActualizar={actualizarEmpresa}
+          onEliminar={eliminarEmpresa}
           onClose={() => setEditandoEmpresa(false)}
         />
       )}
