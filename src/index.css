@@ -80,19 +80,28 @@ body {
   .proforma-print * {
     visibility: visible;
   }
+  /* La vista previa se monta fuera de #root (portal en <body>). Con visibility la app
+     queda invisible pero sigue ocupando su alto, y eso agregaba hojas en blanco al
+     final del PDF: por eso se saca del flujo con display: none. */
+  #root {
+    display: none !important;
+  }
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
   .proforma-print {
-    position: absolute;
-    inset: 0;
     width: 100%;
     padding: 12mm;
     box-sizing: border-box;
   }
-  /* La hoja ocupa toda la página A4 (297mm − 2×12mm de padding, con 3mm de
-     holgura para no generar una segunda hoja en blanco); el recuadro de ítems
-     absorbe el espacio sobrante y deja los totales y la firma al pie. Si hay
-     muchos ítems, la hoja simplemente crece a más páginas. */
+  /* La hoja ocupa toda la página A4 (297mm − 2×12mm de padding, con holgura para
+     redondeos del navegador, que si no generan una segunda hoja en blanco); el
+     recuadro de ítems absorbe el espacio sobrante y deja los totales y la firma al
+     pie. Si hay muchos ítems, la hoja simplemente crece a más páginas. */
   .proforma-sheet {
-    min-height: 270mm;
+    min-height: 265mm;
   }
 }
 
