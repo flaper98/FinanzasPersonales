@@ -16,6 +16,7 @@ import { PlanificadorPage } from './components/Planificador/PlanificadorPage';
 import { PrestamosPage } from './components/Prestamos/PrestamosPage';
 import { TarjetasPage } from './components/Tarjetas/TarjetasPage';
 import { ProformasPage } from './components/Proformas/ProformasPage';
+import { CotizacionesPage } from './components/Cotizaciones/CotizacionesPage';
 import { PresupuestoPage } from './components/Presupuesto/PresupuestoPage';
 
 export type Page =
@@ -26,6 +27,7 @@ export type Page =
   | 'prestamos'
   | 'tarjetas'
   | 'proformas'
+  | 'cotizaciones'
   | 'presupuesto'
   | 'graficos'
   | 'backup';
@@ -46,6 +48,8 @@ function PageContent({ page }: { page: Page }) {
       return <TarjetasPage />;
     case 'proformas':
       return <ProformasPage />;
+    case 'cotizaciones':
+      return <CotizacionesPage />;
     case 'presupuesto':
       return <PresupuestoPage />;
     case 'graficos':

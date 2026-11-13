@@ -11,6 +11,8 @@ import type {
   NewPrestamoInput,
   NewPresupuestoProyectoInput,
   NewProformaInput,
+  NewPaqueteCotizacionInput,
+  PlantillaDocumento,
   NewTarjetaCreditoInput,
   Prestamo,
   PresupuestoMensual,
@@ -36,6 +38,7 @@ import { currentMonthKey, monthKeyOfIso, nextMonthKey, sortedMonthKeys, todayIso
 import { normalizarDetalle } from '../lib/text';
 import { COLOR_ACENTO_DEFAULT, OPCIONES_PROFORMA_DEFAULT } from '../lib/proformaDiseno';
 import { textoPlanoAHtml } from '../lib/html';
+import { plantillasIniciales } from '../lib/documentos';
 
 interface FinanceContextValue {
   state: FinanceState;
@@ -73,6 +76,11 @@ interface FinanceContextValue {
   agregarEmpresa: (input: DatosEmpresa) => string;
   actualizarEmpresa: (id: string, input: DatosEmpresa) => void;
   eliminarEmpresa: (id: string) => void;
+  guardarPlantillaDocumento: (plantilla: PlantillaDocumento) => void;
+  eliminarPlantillaDocumento: (id: string) => void;
+  agregarPaqueteCotizacion: (input: NewPaqueteCotizacionInput) => string;
+  actualizarPaqueteCotizacion: (id: string, input: NewPaqueteCotizacionInput) => void;
+  eliminarPaqueteCotizacion: (id: string) => void;
   agregarIngresoDesdeProforma: (proforma: Proforma) => void;
   agregarPresupuestoProyecto: (input: NewPresupuestoProyectoInput) => void;
   actualizarPresupuestoProyecto: (id: string, input: NewPresupuestoProyectoInput) => void;
@@ -102,6 +110,10 @@ export const DATOS_EMPRESA_VACIOS: DatosEmpresa = {
   numeroCci: '',
   firma: '',
   logo: '',
+  representante: '',
+  dni: '',
+  domicilio: '',
+  huella: '',
 };
 
 /**
@@ -190,6 +202,9 @@ function normalizarDetallesEstado(state: FinanceState): FinanceState {
     })),
     empresas,
     presupuestosProyecto: state.presupuestosProyecto ?? [],
+    // La primera vez se cargan los formatos de declaraciones juradas que pide la Municipalidad de Tahuania (editables).
+    plantillasDocumento: state.plantillasDocumento ?? plantillasIniciales(newId),
+    paquetesCotizacion: state.paquetesCotizacion ?? [],
   };
 }
 
@@ -225,6 +240,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     proformas: [],
     empresas: [],
     presupuestosProyecto: [],
+    plantillasDocumento: [],
+    paquetesCotizacion: [],
   });
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey());
   const [cargando, setCargando] = useState(true);
@@ -519,6 +536,41 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   }
 
   /** Las proformas de la empresa eliminada no se borran: se muestran con la primera empresa que quede. */
+  /** Crea la plantilla si su id no existe todavía, o la reemplaza. */
+  function guardarPlantillaDocumento(plantilla: PlantillaDocumento) {
+    setState((prev) => ({
+      ...prev,
+      plantillasDocumento: prev.plantillasDocumento.some((p) => p.id === plantilla.id)
+        ? prev.plantillasDocumento.map((p) => (p.id === plantilla.id ? plantilla : p))
+        : [...prev.plantillasDocumento, plantilla],
+    }));
+  }
+
+  function eliminarPlantillaDocumento(id: string) {
+    setState((prev) => ({
+      ...prev,
+      plantillasDocumento: prev.plantillasDocumento.filter((p) => p.id !== id),
+      paquetesCotizacion: prev.paquetesCotizacion.map((q) => ({ ...q, plantillaIds: q.plantillaIds.filter((pid) => pid !== id) })),
+    }));
+  }
+
+  function agregarPaqueteCotizacion(input: NewPaqueteCotizacionInput): string {
+    const id = newId();
+    setState((prev) => ({ ...prev, paquetesCotizacion: [...prev.paquetesCotizacion, { ...input, id }] }));
+    return id;
+  }
+
+  function actualizarPaqueteCotizacion(id: string, input: NewPaqueteCotizacionInput) {
+    setState((prev) => ({
+      ...prev,
+      paquetesCotizacion: prev.paquetesCotizacion.map((q) => (q.id === id ? { ...input, id } : q)),
+    }));
+  }
+
+  function eliminarPaqueteCotizacion(id: string) {
+    setState((prev) => ({ ...prev, paquetesCotizacion: prev.paquetesCotizacion.filter((q) => q.id !== id) }));
+  }
+
   function eliminarEmpresa(id: string) {
     setState((prev) => ({ ...prev, empresas: prev.empresas.filter((e) => e.id !== id) }));
   }
@@ -701,6 +753,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     agregarEmpresa,
     actualizarEmpresa,
     eliminarEmpresa,
+    guardarPlantillaDocumento,
+    eliminarPlantillaDocumento,
+    agregarPaqueteCotizacion,
+    actualizarPaqueteCotizacion,
+    eliminarPaqueteCotizacion,
     agregarIngresoDesdeProforma,
     agregarPresupuestoProyecto,
     actualizarPresupuestoProyecto,

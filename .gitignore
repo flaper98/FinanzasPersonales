@@ -11,6 +11,8 @@ dist-ssr
 *.xlsx
 *.xls
 finanzas-backup-*.json
+# Documentos firmados (DNI, firma, huella): nunca deben subirse al repo
+doc/
 
 # Editor
 .vscode/*

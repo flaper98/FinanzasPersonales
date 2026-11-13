@@ -74,6 +74,7 @@ export function EditorTexto({
   placeholder,
   minAlto = '6rem',
   fuente,
+  variables,
 }: {
   valor: string;
   onChange: (html: string) => void;
@@ -81,6 +82,8 @@ export function EditorTexto({
   minAlto?: string;
   /** font-family CSS del documento, para que el editor se vea como saldrá en la proforma. */
   fuente?: string;
+  /** Datos que se pueden insertar como {{CLAVE}} (plantillas de documentos). */
+  variables?: { clave: string; descripcion: string }[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [activos, setActivos] = useState<Record<string, boolean>>({});
@@ -199,6 +202,24 @@ export function EditorTexto({
           />
         ))}
         <Separador />
+        {variables && variables.length > 0 && (
+          <select
+            title="Insertar un dato que se completa solo"
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) ejecutar('insertText', `{{${e.target.value}}}`);
+              e.target.value = '';
+            }}
+            className="h-7 rounded border border-brand-100 bg-brand-50 text-xs font-medium text-brand-700 px-1"
+          >
+            <option value="">+ Dato</option>
+            {variables.map((v) => (
+              <option key={v.clave} value={v.clave}>
+                {v.descripcion}
+              </option>
+            ))}
+          </select>
+        )}
         <Boton titulo="Quitar formato" onClick={() => ejecutar('removeFormat')}>
           <span className="text-xs">⌫ Formato</span>
         </Boton>

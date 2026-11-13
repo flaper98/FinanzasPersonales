@@ -113,7 +113,59 @@ export interface DatosEmpresa {
   firma: string;
   /** Logo (data URL base64), o '' si no configuraste uno. Va en el encabezado de la proforma. */
   logo: string;
+  /** Persona que firma las declaraciones juradas, tal como debe salir (ej. "RIVALDO OROCHE VASQUEZ"). Si está vacío se usa `nombre`. */
+  representante: string;
+  dni: string;
+  /** Domicilio para las declaraciones juradas, si es distinto de `direccion`. */
+  domicilio: string;
+  /** Imagen de la huella digital (índice derecho), data URL base64, o ''. */
+  huella: string;
 }
+
+/** Dónde va el bloque de firma (y huella) al pie de un documento de cotización. */
+export type AlineacionFirma = 'izquierda' | 'centro' | 'derecha';
+
+/**
+ * Formato reutilizable de un documento que acompaña cada cotización (declaraciones
+ * juradas, cartas, anexos). El cuerpo es HTML con datos variables entre llaves dobles,
+ * ej. {{FECHA_LARGA}} o {{DNI}}, que se reemplazan al generar el documento.
+ */
+export interface PlantillaDocumento {
+  id: string;
+  nombre: string;
+  /** Imagen de encabezado (membrete de la entidad), data URL, o ''. */
+  membrete: string;
+  cuerpo: string;
+  firma: boolean;
+  huella: boolean;
+  alineacionFirma: AlineacionFirma;
+  /** Líneas bajo la línea de firma, con variables (ej. "DNI N.º {{DNI}}"). HTML. */
+  pieFirma: string;
+  /** Si se marca sola al crear una cotización nueva. */
+  incluirPorDefecto: boolean;
+}
+
+/** Una respuesta a una solicitud de cotización: los datos que cambian y qué documentos se generan. */
+export interface PaqueteCotizacion {
+  id: string;
+  empresaId: string;
+  /** Ej. "Municipalidad Distrital de Tahuania". */
+  entidad: string;
+  /** Ciudad para "Dado en la ciudad de ..." (ej. "TAHUANIA-BOLOGNESI"). */
+  ciudad: string;
+  /** N.° de la solicitud de cotización (ej. "3264"). */
+  numeroSolicitud: string;
+  /** ISO yyyy-MM-dd */
+  fecha: string;
+  /** Servicio o bien cotizado. */
+  objeto: string;
+  /** Proforma que acompaña la cotización (opcional): aporta el monto y sale como primera hoja. */
+  proformaId: string | null;
+  /** Ids de PlantillaDocumento a generar, en orden. */
+  plantillaIds: string[];
+}
+
+export type NewPaqueteCotizacionInput = Omit<PaqueteCotizacion, 'id'>;
 
 /** 'productos': ítems por cantidad × precio unitario. 'servicio': ítems por horas × tarifa por hora (mismos campos, reetiquetados). */
 export type TipoProforma = 'productos' | 'servicio';
@@ -208,6 +260,8 @@ export interface FinanceState {
   /** @deprecated Solo para leer datos guardados antes de soportar varias empresas; se migra a `empresas`. */
   datosEmpresa?: DatosEmpresa;
   presupuestosProyecto: PresupuestoProyecto[];
+  plantillasDocumento: PlantillaDocumento[];
+  paquetesCotizacion: PaqueteCotizacion[];
 }
 
 export type NewIngresoInput = Omit<Ingreso, 'id'>;

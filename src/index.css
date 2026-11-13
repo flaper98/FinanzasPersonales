@@ -114,3 +114,45 @@ body {
     min-height: 0;
   }
 }
+
+/*
+ * Documentos de cotización (ver components/Cotizaciones): cada documento es
+ * una hoja A4 con sus propios márgenes, y al imprimir cada uno empieza en una
+ * hoja nueva, así todos salen juntos en un solo PDF.
+ */
+.texto-rico table {
+  border-collapse: collapse;
+}
+.texto-rico td,
+.texto-rico th {
+  vertical-align: top;
+}
+.doc-hoja {
+  width: 210mm;
+  max-width: 100%;
+  min-height: 297mm;
+  padding: 18mm 20mm 15mm;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+}
+/* La proforma incluida en una cotización trae su propio diseño; solo le damos el margen de hoja al imprimir. */
+.doc-hoja-proforma {
+  width: 100%;
+}
+@media print {
+  .docs-print {
+    padding: 0 !important;
+  }
+  .docs-print .doc-envoltura + .doc-envoltura {
+    break-before: page;
+  }
+  .doc-hoja {
+    width: 100%;
+    max-width: none;
+    /* Un poco menos que los 297mm de la hoja: los redondeos del navegador si no agregan una hoja en blanco. */
+    min-height: 294mm;
+  }
+  .doc-hoja-proforma {
+    padding: 12mm;
+  }
+}

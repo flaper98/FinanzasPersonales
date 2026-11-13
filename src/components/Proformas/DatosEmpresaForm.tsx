@@ -6,7 +6,7 @@ const inputClase =
   'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500';
 
 /** Lee un archivo de imagen y lo devuelve como data URL PNG, redimensionado para no guardar imágenes gigantes en la cuenta. */
-function redimensionarImagen(file: File, maxAncho: number, maxAlto: number): Promise<string> {
+export function redimensionarImagen(file: File, maxAncho: number, maxAlto: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const lector = new FileReader();
     lector.onload = () => {
@@ -35,7 +35,7 @@ function redimensionarImagen(file: File, maxAncho: number, maxAlto: number): Pro
 }
 
 /** Subir / cambiar / quitar una imagen (logo o firma), con vista previa. */
-function CampoImagen({
+export function CampoImagen({
   titulo,
   ayuda,
   nombre,
@@ -112,6 +112,10 @@ export function DatosEmpresaForm({
   const [numeroCci, setNumeroCci] = useState(initial.numeroCci);
   const [firma, setFirma] = useState(initial.firma);
   const [logo, setLogo] = useState(initial.logo);
+  const [representante, setRepresentante] = useState(initial.representante);
+  const [dni, setDni] = useState(initial.dni);
+  const [domicilio, setDomicilio] = useState(initial.domicilio);
+  const [huella, setHuella] = useState(initial.huella);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -128,6 +132,10 @@ export function DatosEmpresaForm({
       numeroCci: numeroCci.trim(),
       firma,
       logo,
+      representante: representante.trim(),
+      dni: dni.trim(),
+      domicilio: domicilio.trim(),
+      huella,
     });
     onClose();
   }
@@ -171,6 +179,38 @@ export function DatosEmpresaForm({
         </div>
 
         <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-700 mb-1">Declarante (para documentos de cotización)</p>
+          <p className="text-xs text-slate-400 mb-2">
+            Quien firma las declaraciones juradas y cartas, tal como debe aparecer. Si lo dejas vacío se usa el nombre de
+            arriba.
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-500 mb-1">Nombre de quien firma</label>
+              <input
+                value={representante}
+                onChange={(e) => setRepresentante(e.target.value)}
+                placeholder="RIVALDO OROCHE VASQUEZ"
+                className={inputClase}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">DNI</label>
+              <input value={dni} onChange={(e) => setDni(e.target.value)} className={inputClase} />
+            </div>
+          </div>
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-slate-500 mb-1">Domicilio (si es distinto de la dirección)</label>
+            <input
+              value={domicilio}
+              onChange={(e) => setDomicilio(e.target.value)}
+              placeholder="Jirón Alejandro Toledo"
+              className={inputClase}
+            />
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
           <p className="text-sm font-medium text-slate-700 mb-2">Cuenta para pagos (opcional)</p>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -206,6 +246,16 @@ export function DatosEmpresaForm({
           onChange={setFirma}
           maxAncho={480}
           maxAlto={200}
+        />
+
+        <CampoImagen
+          titulo="Huella digital (opcional)"
+          ayuda="Foto o escaneo de tu huella del índice derecho. Va en las declaraciones juradas que la piden."
+          nombre="huella"
+          valor={huella}
+          onChange={setHuella}
+          maxAncho={300}
+          maxAlto={380}
         />
 
         <div className="flex justify-end gap-2 pt-2">
